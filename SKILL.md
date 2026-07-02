@@ -234,9 +234,26 @@ doctl databases delete <id>
 
 ## DNS / Domains
 
+Managing a domain you already own. Two levels: the **domain** resource (the zone) and the **records** inside it.
+
 ```bash
+# --- Domain (zone) ---
+
 # List domains
 doctl compute domain list
+
+# Get a domain (shows TTL + zone file)
+doctl compute domain get example.com
+
+# Add a domain you already own to DO (⚠️ requires approval)
+doctl compute domain create example.com
+# ...optionally seed an A record for @ at the same time:
+doctl compute domain create example.com --ip-address <ip>
+
+# Remove a domain AND all its records (⚠️ requires approval — destructive)
+doctl compute domain delete example.com
+
+# --- Records ---
 
 # List DNS records for a domain
 doctl compute domain records list example.com
@@ -253,9 +270,22 @@ doctl compute domain records create example.com \
   --record-name www \
   --record-data @
 
+# Create TXT record — domain verification / SPF (⚠️ requires approval)
+doctl compute domain records create example.com \
+  --record-type TXT \
+  --record-name @ \
+  --record-data "v=spf1 include:_spf.google.com ~all"
+
+# Update an existing record (⚠️ requires approval)
+doctl compute domain records update example.com \
+  --record-id <id> \
+  --record-data <new-value>
+
 # Delete record (⚠️ requires approval)
 doctl compute domain records delete example.com <record-id>
 ```
+
+> **DO only serves DNS once nameservers are delegated.** Adding a domain in DO does nothing until the registrar's nameservers point to `ns1.digitalocean.com`, `ns2.digitalocean.com`, `ns3.digitalocean.com`. DO is not a registrar — domains are bought elsewhere, then delegated here.
 
 ---
 
