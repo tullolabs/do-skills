@@ -20,7 +20,7 @@ report's own shape makes easy to tell.
 | perf-004 | a CDN endpoint's `ttl` is still 3600 | `account_wide.cdn[]` | med |
 | perf-005 | a droplet reaches a database over the public network rather than the VPC | `resources.dbaas[].private_network_uuid` vs `resources.droplet[].vpc_uuid` | high |
 | perf-006 | a load balancer's `check_interval_seconds` is above 10 | `compute load-balancer get <load-balancer-id>` | low |
-| perf-007 | a load balancer sets `algorithm` | `compute load-balancer get <load-balancer-id>` | low |
+| perf-007 | a stored spec or template still sets a load balancer `algorithm` | the operator's own config, not `doctl` | low |
 | perf-008 | an app component runs a single instance | `resources.app[].spec` | med |
 | perf-009 | a database engine version is more than one major behind the latest available | `databases options engines` | med |
 | perf-010 | a droplet uses a non-SSD or older size family where a current one costs the same | `prices.json` | low |
@@ -28,8 +28,11 @@ report's own shape makes easy to tell.
 | perf-012 | a Kafka topic has one partition | `databases topics list <database-id>` | med |
 | perf-013 | a static site is served from an app rather than Spaces with CDN | `resources.app[].spec` | low |
 
-`perf-007` is not a preference. `--algorithm` is deprecated on DigitalOcean load balancers and the
-value is ignored, so a spec that sets it is describing routing behaviour that is not happening.
+`perf-007` cannot be answered from `doctl` and is here so you do not go looking. The flag's own help
+text reads "This field has been deprecated. You can no longer specify an algorithm for load
+balancers", and `compute load-balancer get --help` does not offer `Algorithm` as a column at all, so
+a live load balancer will never report one. Raise it only if the operator's own Terraform or app spec
+still sets it, where it describes routing that is not happening. Otherwise put it in `## Not checked`.
 
 `perf-005` is the one worth chasing first. A database reached over its public hostname pays an extra
 network hop and TLS termination on every connection, and the fix is a connection string change with

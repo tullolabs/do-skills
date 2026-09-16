@@ -54,14 +54,12 @@ existing `.do/.gitignore` alone; it belongs to `doctl apps dev config`.
 This writes `$OUT/inventory.json` and `$OUT/prices.json` and prints a resource count. It is the
 only step that talks to DigitalOcean in bulk, and it exists as a script for two reasons:
 
-- **`doctl` leaks credentials through ordinary list output.** `databases list -o json` returns
-  `connection.password`, `private_connection.password`, and `users[].password` in full. A per-command
-  denylist does not catch that, because nothing about the command name suggests it. `inventory.py`
-  redacts by key name recursively before anything reaches disk, keeping the key so an audit can
-  still see that a credential exists.
+- **`doctl` leaks credentials through ordinary list output**, so redaction has to happen before
+  anything reaches disk. See the first gotcha for what leaks and why a per-command denylist misses it.
 - **Six subagents read this file.** Anything duplicated in it is paid for six times over, so the
-  script drops `active_deployment` (which repeats each app's whole spec, about 9 KB per app) and
-  splits the droplet price catalog into `prices.json`, which only the cost playbook opens.
+  script drops `active_deployment` (which repeats each app's whole spec, about 9 KB per app), strips
+  app env values while keeping every key, scope, and type, and splits the droplet price catalog into
+  `prices.json`, which only the cost playbook opens.
 
 The commands it runs, all read-only:
 
@@ -96,10 +94,14 @@ script could not resolve lands in `inventory.gaps` and must be reported, not sil
 
 One per playbook, all at once. Each subagent gets this instruction, with `<area>` substituted:
 
-> Read `playbooks/<area>.md` in this skill's directory and `$OUT/inventory.json`. Run only the
-> commands the playbook names, all read-only. Write your findings to `$OUT/raw/<area>.jsonl`, one
-> JSON object per line, and your reasoning and evidence to `$OUT/raw/<area>.md`. Do not touch any
-> other file. Do not run a command that creates, updates, deletes, or starts anything.
+> Read `playbooks/<area>.md` in this skill's directory. Run only the commands the playbook names,
+> all read-only. Write your findings to `$OUT/raw/<area>.jsonl`, one JSON object per line, and your
+> reasoning and evidence to `$OUT/raw/<area>.md`. Do not touch any other file. Do not run a command
+> that creates, updates, deletes, or starts anything.
+>
+> Do not read `$OUT/inventory.json` whole. On a 21-app project it is 94 KB, and each check needs one
+> slice of it. Pull the slice the Source column names:
+> `python3 -c 'import json;print(json.dumps(json.load(open("'"$OUT"'/inventory.json"))["resources"]["volume"]))'`
 
 | Area | Playbook | Looks for |
 |---|---|---|
@@ -149,12 +151,14 @@ Add to it anything in `inventory.gaps`, plus any command that returned a 403.
 
 ## Gotchas
 
-**A read-only command can still hand you a live password.** `doctl databases list -o json` returns `connection.password`, `private_connection.password`, and `users[].password` populated, and so does `databases get`. This was verified against a real cluster on this account. Redact by key name before writing or displaying anything, which is what `inventory.py` does. Never run the commands whose only output is a credential: `doctl auth token`, `databases connection`, `databases replica connection`, `vector-databases credentials`, `registry docker-config`, `registry kubernetes-manifest`, `kubernetes cluster kubeconfig show`, `network attachment get-service-key`, `network attachment get-bgp-auth-key`, `secrets get --show`. Reference a secret by name, never by value.
+**A read-only command can still hand you a live password.** `doctl databases list -o json` and `databases get` both return `connection.password`, `private_connection.password`, and `users[].password` populated, and `connection.uri` has the same password embedded in it, so redacting the obvious key alone is not enough. Verified against a real cluster on this account. Nothing in either command's name suggests it, which is why a per-command denylist is not the defence; redacting by key name is. Redact by key name before writing or displaying anything, which is what `inventory.py` does. Never run the commands whose only output is a credential: `doctl auth token`, `databases connection`, `databases replica connection`, `vector-databases credentials`, `registry docker-config`, `registry kubernetes-manifest`, `kubernetes cluster kubeconfig show`, `network attachment get-service-key`, `network attachment get-bgp-auth-key`, `secrets get --show`. Reference a secret by name, never by value.
 
 **Some commands that read like reads are writes.** `doctl registry garbage-collection start` deletes blobs. `doctl security scans create` starts a billable scan. `doctl apps dev config set` writes to local disk. An earlier pass on this repo created a real billable uptime check while trying to provoke an authentication error, so treat a command as a write unless its name is `list`, `get`, or `show`.
 
 **A 403 on Secrets Manager or CSPM is a scope gap, not a failure.** Those APIs need token scopes the default OAuth context often lacks. Record the command in `## Not checked` and move on. Retrying it, or switching contexts to get around it, audits an account the operator did not ask about.
 
 **Project scope has holes that are not the audit's fault.** Firewalls, VPCs, certificates, and CDN endpoints cannot be assigned to a project at all, and `doctl projects resources list` will never return them. The inventory pivots through the project's droplets to reach firewalls and VPCs, so a resource with no droplets in the project has an invisible network configuration. Say so in the report rather than reporting zero findings.
+
+**A check that finds nothing and a check that could not run look identical in the output, and only one of them is good news.** Most playbook checks name a JSON field. If that field is missing from `inventory.json`, you have learned nothing about the resource, so say so in `## Not checked` instead of emitting zero findings. This is not hypothetical: `doctl` renames fields between the JSON object and the `--format` columns, so a reserved IP's attachment is `droplet` in JSON and `DropletID` in text, a cluster's HA flag is `HAControlPlane` in text, and an autoscale pool's bounds sit under `config`. Where a playbook row names both, the text column is the one verified against this `doctl` build.
 
 **Two runs should diff to almost nothing.** Finding ids are `<area>-<nnn>` assigned in the playbook's own check order, not in discovery order, so the same problem keeps the same id across runs. If a re-run reshuffles ids, the report cannot be used to track whether anything actually got fixed, which is most of the point of writing it to a file.

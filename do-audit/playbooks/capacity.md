@@ -12,10 +12,10 @@ scale and has no alert on it is the finding.
 
 | id | Finding when | Source | sev |
 |---|---|---|---|
-| cap-001 | an autoscale pool has `min_instances` equal to `max_instances` | `compute droplet-autoscale get <autoscale-pool-id>` | med |
+| cap-001 | a pool's min and max instance counts are equal (`config.min_instances`, text columns `Min Instance` and `Max Instance`) | `compute droplet-autoscale get <autoscale-pool-id>` | med |
 | cap-002 | a Kubernetes node pool has `auto_scale: false` | `kubernetes cluster node-pool list <cluster-id>` | med |
 | cap-003 | a Kubernetes pool has `auto_scale: true` but `min_nodes` equals `max_nodes` | `kubernetes cluster node-pool list <cluster-id>` | med |
-| cap-004 | a database cluster has storage autoscale disabled | `databases storage-autoscale get <database-id>` | high |
+| cap-004 | `enabled` is false | `databases storage-autoscale get <database-id>` | high |
 | cap-005 | a volume is the same size as when created and its droplet has grown | `resources.volume[]` | low |
 | cap-006 | a Kafka topic has `replication_factor: 1` | `databases topics list <database-id>` | high |
 | cap-007 | an app component has no `autoscaling` block and a fixed `instance_count` | `resources.app[].spec` | med |
@@ -25,8 +25,9 @@ scale and has no alert on it is the finding.
 | cap-011 | a database's `storage_size_mib` is at the plan minimum on a cluster older than 90 days | `resources.dbaas[]` | low |
 | cap-012 | a reserved IP count or droplet count is near an account limit | `doctl account get` | low |
 
-`cap-004` earns the high. A managed database that fills its disk goes read-only, and storage
-autoscale is off by default on most plans. It is the cheapest single setting in this whole audit.
+`cap-004` earns the high. A managed database that fills its disk goes read-only. The command
+returns `enabled`, `threshold_percent`, and `increment_gib`; a cluster on the reference account came
+back enabled at 80 percent, so do not assume either default. Report what the field actually says.
 
 `cap-008` matters more than it reads. Every other check here is about whether something can grow.
 This one is about whether anyone will know it needs to, and an unmonitored resource that cannot

@@ -64,12 +64,31 @@ def skill_commands():
 
 def gate1():
     paths, locs = skill_commands()
-    bad = []
+    bad, help_of, real_of = [], {}, {}
     for k in sorted(paths):
         rc, h = helptext(k)
+        help_of[k] = h
         if rc != 0 or "Usage:" not in h:
             bad.append(f"no such command: doctl {k}  ({locs[k][0]})")
             continue
+        # cobra accepts an unknown trailing word as a positional and prints the parent's
+        # help, so rc==0 does not prove the subcommand exists. Keep the path cobra echoes
+        # back; anything we wrote beyond it was swallowed as an argument.
+        m = re.search(r"^Usage:\n\s+doctl\s+(.*)$", h, re.M)
+        real_of[k] = [t for t in m.group(1).split()
+                      if re.fullmatch(r"[a-z0-9][a-z0-9-]*", t)] if m else k.split()
+
+    # Every token cobra itself uses as a path component. A swallowed tail that appears
+    # here is a phantom subcommand; one that does not is a literal example value like
+    # `my-registry` or `web`, which is correct usage and must not fail the gate.
+    known = {t for r in real_of.values() for t in r}
+    for k in sorted(real_of):
+        tail = [t for t in k.split()[len(real_of[k]):] if t in known]
+        if tail:
+            bad.append(f"not a subcommand: doctl {k}  "
+                       f"(real: doctl {' '.join(real_of[k])})  ({locs[k][0]})")
+            continue
+        h = help_of[k]
         for fl in sorted(paths[k]):
             if not re.search(r"(^|\s)" + re.escape(fl) + r"(\s|,|=|$)", h, re.M):
                 bad.append(f"no such flag: {fl} on doctl {k}  ({locs[k][0]})")

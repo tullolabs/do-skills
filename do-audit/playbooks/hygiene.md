@@ -31,10 +31,11 @@ belongs to a different project is correctly placed and is not a finding.
 `doctl` commands that accept a name act on whichever one the API returns first. Two droplets called
 `web-01` means every future command against `web-01` is a coin flip, including the destructive ones.
 
-`hyg-003` has a trap that makes it produce wrong numbers if you use the obvious command.
-`doctl compute tag get <tag-name>` reports a resource count that only counts droplets, so a tag
-applied to volumes and databases reads as 0 and looks unused. Count tag membership from
-`inventory.json` instead, and only use the tag lister to find tags that exist.
+`hyg-003` produces wrong numbers if you read the text output. `doctl compute tag get <tag-name>`
+offers exactly two columns, `Name` and `DropletCount`, so a tag applied only to volumes or databases
+prints 0 and looks unused. The `-o json` form does carry the full breakdown, a `resources` object
+with a `count` plus separate `droplets`, `images`, `volumes`, `volume_snapshots`, and `databases`
+entries. Use the JSON, or count membership from `inventory.json`.
 
 `hyg-008` is `high` on purpose. A gap means part of the audit did not run, and a report that looks
 clean because a lister failed is worse than no report.

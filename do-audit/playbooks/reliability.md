@@ -12,7 +12,7 @@ what is lost and how far back the restore point goes.
 | id | Finding when | Source | sev |
 |---|---|---|---|
 | rel-001 | a droplet has no entry in `resources.backup_policy` | `resources.droplet[]` | high |
-| rel-002 | a droplet's backup policy exists but its newest backup is older than 8 days | `compute droplet backups list <droplet-id>` | high |
+| rel-002 | a droplet's backup policy exists but its newest backup is older than 8 days | `compute droplet backups <droplet-id>` | high |
 | rel-003 | a droplet has no snapshot and no backup at all | `resources.snapshot[]`, `resources.backup_policy` | crit |
 | rel-004 | a database cluster has `num_nodes: 1` | `resources.dbaas[]` | high |
 | rel-005 | a database cluster's newest backup is older than 24 hours | `databases backups <database-id>` | crit |
@@ -36,7 +36,7 @@ surfaces that until someone needs it.
 ## Commands beyond the inventory
 
 ```bash
-doctl compute droplet backups list <droplet-id>
+doctl compute droplet backups <droplet-id>
 doctl databases backups <database-id>
 doctl databases replica list <database-id>
 doctl databases maintenance-window get <database-id>

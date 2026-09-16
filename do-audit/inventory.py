@@ -44,6 +44,22 @@ def scrub(o, top=False):
                 for k, v in o.items() if not (top and k in DROP)}
     return [scrub(v, top) for v in o] if isinstance(o, list) else o
 
+def strip_env_values(spec):
+    """Drop app env values, keep every key, scope, and type.
+
+    A real account returned 1545 plaintext env values across 67 apps and no audit check
+    reads one. Dropping them is 29% off spec bytes and removes the risk of an operator's
+    mislabelled secret riding along. SECRET-typed envs come back encrypted (`EV[1:...]`)
+    and are redacted too, since an audit has no use for either form.
+    """
+    for group in ("services", "workers", "jobs", "static_sites", "functions"):
+        for c in spec.get(group) or []:
+            for e in c.get("envs") or []:
+                e["value"] = "[redacted]"
+    for e in spec.get("envs") or []:
+        e["value"] = "[redacted]"
+    return spec
+
 def do(cmd):
     """Run a read-only doctl command, return scrubbed JSON. Records gaps, never raises."""
     argv = ["doctl"] + cmd.split() + ["-o", "json"] + (["--context", CTX] if CTX else [])
@@ -79,6 +95,10 @@ def main():
             x["_urn"] = f"do:{typ}:{x.get(idf)}"
             x["_assigned_at"] = urns[x["_urn"]].get("assigned_at")
         inv["resources"][typ] = items
+
+    for a in inv["resources"]["app"]:
+        if a.get("spec"):
+            strip_env_values(a["spec"])
 
     droplets = inv["resources"]["droplet"]
     dids = {d["id"] for d in droplets}
