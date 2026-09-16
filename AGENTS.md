@@ -78,9 +78,17 @@ moves in the direction you expect, and spot-check a group's longest-named comman
 
 One skill per product area, named `do-<product>`, each standalone and invocable as
 `/do-<product>`. `do-ops` is the index and owns auth, billing, and cross-cutting gotchas.
+`do-audit` is the one deliberate exception, because auditing cuts across every product and
+splitting it per product would mean fifteen partial reports nobody can total up.
 A skill's frontmatter `description` is always resident in every agent's context, whether or
 not any DigitalOcean work happens, so it is the most expensive text in the repo per byte. All
-fifteen together are the budget, currently ~2800 chars. Keep each one 140 to 240 chars.
+sixteen together are the budget, currently ~3040 chars. Keep each one 140 to 240 chars.
+
+A skill may bundle extra files beside its `SKILL.md`, which is how `do-audit` carries its six
+playbooks. Bundled files cost nothing resident: they load only when the skill reads them, and
+`install.sh` already copies them because its loop is `cp -r` over the whole directory. Gate 1
+checks `do-*/playbooks/*.md` alongside the skills, so commands written there are held to the
+same standard. Gate 2 ignores them on purpose.
 
 Descriptions route, so distinctive nouns are the whole payload. `Kafka`, `BYOIP`, `kubeconfig`,
 and `CSPM` earn their space because only one skill contains them. Generic verbs do not: every

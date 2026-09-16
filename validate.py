@@ -12,6 +12,9 @@ from collections import defaultdict
 DOCTL = sys.argv[1] if len(sys.argv) > 1 else "doctl"
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FILES = sorted(glob.glob(os.path.join(ROOT, "do-*", "SKILL.md")))
+# Gate 1 also checks bundled playbooks; gate 2 deliberately does not. A leaf documented
+# only inside a playbook would otherwise count as covered and hide a missing product skill.
+PLAYBOOKS = sorted(glob.glob(os.path.join(ROOT, "do-*", "playbooks", "*.md")))
 
 # Commands that intentionally stay undocumented, with the reason.
 EXCLUDED = {
@@ -30,7 +33,7 @@ def helptext(path):
 def skill_commands():
     """Every doctl invocation written in the skills, with continuations joined."""
     paths, locs = defaultdict(set), defaultdict(list)
-    for f in FILES:
+    for f in FILES + PLAYBOOKS:
         lines, buf, start = [], "", 0
         for i, raw in enumerate(open(f).read().split("\n"), 1):
             s = raw.split("#")[0].rstrip()
@@ -116,7 +119,8 @@ def gate2():
 
 if __name__ == "__main__":
     rc, v = helptext("version")
-    print(f"doctl: {DOCTL}  {v.splitlines()[0] if v else '?'}\nfiles: {len(FILES)}\n")
+    print(f"doctl: {DOCTL}  {v.splitlines()[0] if v else '?'}\n"
+          f"files: {len(FILES)} skills + {len(PLAYBOOKS)} playbooks\n")
     ok = gate1()
     ok = gate2() and ok
     print("\nPASS" if ok else "\nFAIL")

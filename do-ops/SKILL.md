@@ -29,6 +29,7 @@ argument-hint: "[auth|context|billing|api]"
 | Projects, resource assignment, tags | `/do-projects` |
 | Gradient agents, knowledge bases, vector DBs, inference | `/do-ai` |
 | Secrets Manager and CSPM security scans | `/do-secrets` |
+| Auditing an existing setup for cost, exposure, or missing backups | `/do-audit` |
 
 Each one is standalone. Read this skill first only when you need auth, contexts, billing, or the raw API.
 

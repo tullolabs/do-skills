@@ -1,6 +1,6 @@
 # do-skills
 
-DigitalOcean operations skills for AI agents. Fifteen skills, one per product area, so
+DigitalOcean operations skills for AI agents. Sixteen skills, one per product area, so
 an agent working on app logs doesn't load 180 lines of Spaces file operations it will
 never read.
 
@@ -37,10 +37,11 @@ so an agent that copies from DigitalOcean's docs knows why the copy failed.
 | `/do-monitoring` | Metric alert policies and uptime checks. |
 | `/do-projects` | Projects, resource assignment, tags. |
 | `/do-secrets` | Secrets Manager and CSPM security scans. |
+| `/do-audit` | Read-only audit of a project: cost waste, exposure, backups, capacity, hygiene. |
 
 ## Install
 
-All fifteen, for every project on the machine:
+All sixteen, for every project on the machine:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tullolabs/do-skills/main/install.sh | bash
@@ -110,16 +111,19 @@ real `doctl` binary:
 ```
 
 ```
-gate 1  commands written: 509   flag pairs: 262   problems: 0
+gate 1  commands written: 511   flag pairs: 263   problems: 0
 gate 2  leaf commands: 511   excluded: 6   undocumented: 0
 
 PASS
 ```
 
-Gate 1 pulls every `doctl ...` invocation out of all fifteen skills, joins `\`
-continuations, and asserts the command path and each flag actually appear in that
-command's `--help`. It exists because a flag that doesn't exist reads exactly like a flag
-that does.
+Gate 1 pulls every `doctl ...` invocation out of all sixteen skills and the audit
+playbooks they bundle, joins `\` continuations, and asserts the command path and each flag
+actually appear in that command's `--help`. It exists because a flag that doesn't exist
+reads exactly like a flag that does.
+
+Gate 2 stays on the skills alone. A command documented only inside a playbook would
+otherwise count as covered and hide a missing product skill.
 
 Gate 2 walks the whole command tree and asserts every leaf is documented somewhere or
 sits in the `EXCLUDED` dict with a written reason. This is the one that matters when
