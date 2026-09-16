@@ -96,7 +96,7 @@ real `doctl` binary:
 ```
 
 ```
-gate 1  commands written: 509   flag pairs: 260   problems: 0
+gate 1  commands written: 509   flag pairs: 262   problems: 0
 gate 2  leaf commands: 511   excluded: 6   undocumented: 0
 
 PASS

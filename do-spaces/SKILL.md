@@ -1,6 +1,6 @@
 ---
 name: do-spaces
-description: Use for any DigitalOcean Spaces, bucket, S3, or CDN task. Upload, list, sync, and delete objects with the AWS CLI, create and update CDN endpoints, flush the CDN cache, and manage Spaces access keys and grants with doctl.
+description: DigitalOcean Spaces, buckets, S3, and CDN. Use for uploading, listing, syncing, and deleting objects with the AWS CLI, CDN endpoints and cache flush, and Spaces access keys and grants.
 user-invocable: true
 argument-hint: "[upload|list|delete|flush] [path]"
 ---
@@ -10,20 +10,19 @@ argument-hint: "[upload|list|delete|flush] [path]"
 > Destructive ops (delete, overwrite) need operator approval. Reads are always safe.
 > Auth: the six `DO_SPACES_*` vars must be in the environment. See `/do-ops` for doctl contexts.
 
-The six `DO_SPACES_*` environment variables are the interface. Bucket name, endpoint, and CDN URL are
-environment-specific, so nothing is hardcoded here. How they get set is your business: direnv, a secrets
-manager, and CI all export them already. This repo assumes `~/.env` when they are not set yet, which is why
-every block below starts with the same guarded line rather than a bare `source`.
+Bucket name, endpoint, and CDN URL are environment-specific, so nothing is hardcoded here. `~/.env` is the
+fallback when those vars are not already exported, which is why every block below starts with the same
+guarded line.
 
 `doctl` cannot read or write Spaces objects. It only manages access keys (`doctl spaces keys`) and the CDN.
-Writes, listings, and deletes need a separate S3 client. Check one is present before you promise an upload:
+Writes, listings, and deletes need a separate S3 client.
 
 ```bash
 command -v aws || brew install awscli    # or: pipx install s3cmd
 ```
 
 **Reading a public file needs none of this.** A `public-read` object is a plain GET on its CDN URL, so no
-credentials, no S3 client, no `.env`. Only reach for the AWS CLI when you need to write, list, or delete.
+credentials, no S3 client, no `.env`. Use the AWS CLI only to write, list, or delete.
 
 ```bash
 curl -sSL -o local.jpg $DO_SPACES_CDN/project-name/images/file.jpg
@@ -51,8 +50,6 @@ Rules:
 
 ### File Operations
 
-Load credentials first. Pass them inline — do not configure `~/.aws/credentials`.
-
 ```bash
 [ -n "$DO_SPACES_KEY" ] || source ~/.env
 
@@ -71,14 +68,12 @@ AWS_DEFAULT_REGION=us-east-1 \
 aws s3 cp ./file.pdf s3://$DO_SPACES_BUCKET/project-name/docs/file.pdf \
   --endpoint-url $DO_SPACES_ENDPOINT
 
-# List folder
 AWS_ACCESS_KEY_ID=$DO_SPACES_KEY \
 AWS_SECRET_ACCESS_KEY=$DO_SPACES_SECRET \
 AWS_DEFAULT_REGION=us-east-1 \
 aws s3 ls s3://$DO_SPACES_BUCKET/project-name/ \
   --endpoint-url $DO_SPACES_ENDPOINT
 
-# Sync local dir to Spaces
 AWS_ACCESS_KEY_ID=$DO_SPACES_KEY \
 AWS_SECRET_ACCESS_KEY=$DO_SPACES_SECRET \
 AWS_DEFAULT_REGION=us-east-1 \
@@ -86,7 +81,7 @@ aws s3 sync ./dist s3://$DO_SPACES_BUCKET/project-name/assets/ \
   --endpoint-url $DO_SPACES_ENDPOINT \
   --acl public-read
 
-# Delete a file (⚠️ requires approval)
+# (⚠️ requires approval)
 AWS_ACCESS_KEY_ID=$DO_SPACES_KEY \
 AWS_SECRET_ACCESS_KEY=$DO_SPACES_SECRET \
 AWS_DEFAULT_REGION=us-east-1 \
@@ -100,7 +95,7 @@ aws s3 rm s3://$DO_SPACES_BUCKET/project-name/images/file.jpg \
 $DO_SPACES_CDN/project-name/images/file.jpg
 ```
 
-CDN URL = `$DO_SPACES_CDN` + `/` + path within bucket. Never use the raw Spaces endpoint URL in app code, always use CDN.
+CDN URL = `$DO_SPACES_CDN` + `/` + path within bucket.
 
 Spaces supports exactly two canned ACLs: `private` and `public-read`. Don't count on `authenticated-read` or
 `bucket-owner-full-control` doing anything useful. For rules finer than that, use a bucket policy via
@@ -108,33 +103,30 @@ Spaces supports exactly two canned ACLs: `private` and `public-read`. Don't coun
 
 ### CDN endpoints
 
-A CDN endpoint is its own resource, created over a bucket rather than part of it. `doctl compute cdn create`
-takes the bucket's full Spaces hostname as its positional origin — `<bucket>.<region>.digitaloceanspaces.com`,
-never the bare bucket name — and returns the generated endpoint plus the CDN ID that `$DO_SPACES_CDN_ID` holds.
-A custom subdomain needs a DigitalOcean-managed certificate; see `/do-network` for issuing one.
+A CDN endpoint is its own resource created over a bucket. `doctl compute cdn create` takes the bucket's full
+Spaces hostname as its positional origin — `<bucket>.<region>.digitaloceanspaces.com`, never the bare bucket
+name — and returns the endpoint plus the CDN ID that `$DO_SPACES_CDN_ID` holds. A custom subdomain needs a
+DigitalOcean-managed certificate; see `/do-network` for issuing one.
 
 ```bash
 [ -n "$DO_SPACES_KEY" ] || source ~/.env
 
-# List endpoints with their IDs, origins, and TTLs
 doctl compute cdn list --format ID,Origin,Endpoint,TTL,CustomDomain,CertificateID
 
-# Create an endpoint over a bucket (TTL defaults to 3600 seconds)
+# TTL defaults to 3600 seconds
 doctl compute cdn create $DO_SPACES_BUCKET.<region>.digitaloceanspaces.com   # (⚠️ requires approval)
 
-# Create with a custom subdomain (`--certificate-id` is mandatory whenever `--domain` is set)
+# --certificate-id is mandatory whenever --domain is set
 # (⚠️ requires approval)
 doctl compute cdn create $DO_SPACES_BUCKET.<region>.digitaloceanspaces.com \
   --domain cdn.example.com \
   --certificate-id <certificate-id>
 
-# Inspect one endpoint
 doctl compute cdn get <cdn-id> --format ID,Origin,Endpoint,TTL,CustomDomain,CertificateID
 
-# Shorten the cache lifetime to 10 minutes
 doctl compute cdn update <cdn-id> --ttl 600   # (⚠️ requires approval)
 
-# Attach or move a custom subdomain (the certificate must already cover that FQDN)
+# The certificate must already cover that FQDN
 doctl compute cdn update <cdn-id> --domain cdn.example.com --certificate-id <certificate-id>   # (⚠️ requires approval)
 
 # Delete the endpoint (⚠️ requires approval — CDN URLs stop resolving, bucket objects are untouched)
@@ -146,27 +138,26 @@ at all it stops at `Nothing to update.`. Get the certificate ID from `doctl comp
 
 ### CDN Cache Flush
 
-Edge cache TTL defaults to one hour, so an updated file does refresh on its own. Flush when you need it now:
+Edge cache TTL defaults to one hour, so an updated file refreshes on its own. Flush when you need it now:
 
 ```bash
 [ -n "$DO_SPACES_KEY" ] || source ~/.env
 
-# Flush entire CDN cache
 doctl compute cdn flush $DO_SPACES_CDN_ID --files "*"   # (⚠️ requires approval)
 
-# Flush specific path (leading slash, wildcard for a whole directory)
+# Leading slash; wildcard for a whole directory
 doctl compute cdn flush $DO_SPACES_CDN_ID --files /project-name/images/file.jpg   # (⚠️ requires approval)
 doctl compute cdn flush $DO_SPACES_CDN_ID --files "/project-name/images/*"   # (⚠️ requires approval)
 
-# Get CDN ID if you don't have it
+# Get the CDN ID
 doctl compute cdn list
 ```
 
-> **Always flush after upload if the file was previously cached.** New files don't need a flush, but updates to existing files do.
+> **Always flush after upload if the file was previously cached.** New files don't need it.
 
 ### Access Keys
 
-`doctl spaces` only manages keys. There is no `doctl spaces list`/`get` for buckets; use `aws s3 ls` or the API.
+`doctl spaces` only manages keys. There is no bucket list or get; use `aws s3 ls` or the API.
 
 ```bash
 doctl spaces keys list
@@ -180,12 +171,12 @@ doctl spaces keys update <access-key-id> --name new-key \
 doctl spaces keys delete <key-id>          # (⚠️ requires approval)
 ```
 
-Scoped ("limited") keys are the right default for an app that touches one bucket. Caveat: a limited key
-cannot call `PutBucketPolicy`. Use a full-access key for policy changes.
+Scoped ("limited") keys are the right default for an app that touches one bucket, but a limited key cannot
+call `PutBucketPolicy`. Use a full-access key for policy changes.
 
 ## Gotchas
 
-**The endpoint URL picks the datacenter, not the region flag.** `--endpoint-url` is what routes the request. `us-east-1` is the safe placeholder every DO example uses, and non-Python SDKs actually require it for bucket creation. Setting it while the bucket lives in SGP1 costs nothing.
+**The endpoint URL picks the datacenter, not the region flag.** `--endpoint-url` is what routes the request. `us-east-1` is the safe placeholder every DO example uses, and non-Python SDKs require it for bucket creation. Setting it while the bucket lives in SGP1 costs nothing.
 
 **`doctl spaces` does not list buckets.** It only manages access keys. Bucket and object listing goes through an S3 client or the API.
 

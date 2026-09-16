@@ -1,6 +1,6 @@
 ---
 name: do-apps
-description: DigitalOcean App Platform operations with doctl. Use for listing apps, reading logs, validating a spec, deploying, restarting, cancelling events and job invocations, upgrading buildpacks, and building components locally. Also covers why a static site needs its own domain.
+description: DigitalOcean App Platform. Use for app logs, spec validation, deploys, restarts, cancelling events and job invocations, buildpack upgrades, and local builds. Also why a static site needs its own domain.
 user-invocable: true
 argument-hint: "[logs|spec|deploy|restart] [app]"
 ---
@@ -14,57 +14,54 @@ argument-hint: "[logs|spec|deploy|restart] [app]"
 
 ### Static Sites on App Platform
 
-**Our convention: static sites run at `/`, not under a sub-path.** App Platform does support sub-path routing
-for static sites, so this is a rule we picked, not a limit the platform imposes.
+**Our convention: static sites run at `/`, not under a sub-path.** App Platform does support sub-path routing,
+so this is our rule, not a platform limit.
 
-Ingress rules can match and rewrite a path prefix, so `/docs` does reach the component. The breakage happens
-one layer down. The built HTML asks for `/assets/app.js`, that request never matches the `/docs` rule, and the
-ingress hands it to whatever owns `/`. Getting it right means the build's base path, the ingress match, and
-`preserve_path_prefix` all agree, and any one of them drifting gives a white page with 404s in the console.
+An ingress rule matches and rewrites `/docs`, so the component is reached. The break is one layer down. The
+built HTML asks for `/assets/app.js`, which never matches the `/docs` rule, so the ingress hands it to whatever
+owns `/`. The build's base path, the ingress match, and `preserve_path_prefix` all have to agree, and any one
+of them drifting gives a white page with 404s in the console.
 
 **The fix:** Give each static site its own domain or subdomain.
 - Point a CNAME to the App Platform ingress
 - Set `baseUrl: '/'` so all assets resolve from root
-- No routing to keep in sync
 
-Sub-path routing is worth the effort for **dynamic backends** (services), where an API prefix is one rule and
-there are no relative asset URLs to break.
+Sub-path routing is worth it for **dynamic backends** (services), where an API prefix is one rule and no
+relative asset URLs break.
 
 Three spec fields to know:
-- `catchall_document: index.html` is what makes client-side routing work. Without it a deep link 404s.
+- `catchall_document: index.html` makes client-side routing work. Without it a deep link 404s.
 - Component-level `routes:` is deprecated. Use the top-level `ingress:` block for new specs.
 - Component-level `preserve_path_prefix` is deprecated with it. The live one is
-  `ingress.rules[].component.preserve_path_prefix`, and it is mutually exclusive with `rewrite`.
+  `ingress.rules[].component.preserve_path_prefix`, mutually exclusive with `rewrite`.
 
 ### Core app lifecycle
 
 ```bash
-# List all apps
 doctl apps list
 
-# Get app details (includes ID, URL, status)
+# Includes ID, URL, status
 doctl apps get <id>
 
-# Logs (these do NOT follow by default; there is no --no-follow flag)
-doctl apps logs <id> --type run          # runtime logs (default type)
-doctl apps logs <id> --type build        # build logs
-doctl apps logs <id> --type deploy       # deploy logs
+# Logs do NOT follow by default; there is no --no-follow flag
+doctl apps logs <id> --type run          # default type
+doctl apps logs <id> --type build
+doctl apps logs <id> --type deploy
 doctl apps logs <id> --type run_restarted  # logs from before a crash-restart
-doctl apps logs <id> --type autoscale_event  # scaling decisions
-doctl apps logs <id> --tail 50           # last 50 lines
-doctl apps logs <id> <component> -f      # follow one component
+doctl apps logs <id> --type autoscale_event
+doctl apps logs <id> --tail 50
+doctl apps logs <id> <component> -f
 
 # Why is it broken
 doctl apps list-deployments <id>
 doctl apps get-deployment <id> <deployment-id>
 doctl apps list-events <id>              # surfaces build/deploy failures with reasons
 
-# Read the live spec (do this before editing anything)
+# Read the live spec before editing anything
 doctl apps spec get <id> > app.yaml
 doctl apps propose --spec app.yaml       # dry-run validate, no changes made
 
-# Apply a spec change (⚠️ requires approval)
-# Spec only. Add --update-sources to also pull the latest source or image.
+# (⚠️ requires approval) spec only; add --update-sources to also pull the latest source or image
 doctl apps update <id> --spec app.yaml
 
 # Deploy from spec (⚠️ requires approval — only for new apps)
@@ -77,23 +74,21 @@ doctl apps create --spec app.yaml
 # Without --update-sources this rebuilds the SAME commit and image.
 doctl apps create-deployment <id> --update-sources
 
-# Restart an app, or one component (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl apps restart <id>
 doctl apps restart <id> --components <component>
 
 # Shell into a running component (⚠️ requires approval)
 doctl apps console <id> <component>
 
-# Delete (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl apps delete <id>
 ```
 
-`doctl apps propose` validates a spec without applying it. Run it before every `update`.
-
 ### Events and job invocations
 
-Text output is a summary; add the global `-o json` flag for the full record and its failure reason. Only
-autoscaling events can be cancelled, and job invocations are individual runs of a `job` component.
+Text output is a summary; add the global `-o json` for the full record and its failure reason. Only autoscaling
+events can be cancelled. A job invocation is one run of a `job` component.
 
 ```bash
 doctl apps list-events <id> --event-type DEPLOYMENT,AUTOSCALING   # narrow the list above
@@ -113,10 +108,9 @@ doctl apps cancel-job-invocation <id> <job-invocation-id>   # (⚠️ requires a
 `list-regions` and `tier instance-size list` take no app ID. Use them to pick a `region` and `instance_size_slug`.
 
 ```bash
-doctl apps list-instances <id>           # the ephemeral compute instances running right now
+doctl apps list-instances <id>
 doctl apps list-alerts <id> --format ID,Trigger,Spec.Rule
 # Repoint one alert's emails and Slack webhooks (⚠️ requires approval)
-# The flag is --app-alert-destinations. The built-in help example prints --alert-destinations, which is wrong.
 doctl apps update-alert-destinations <id> <alert-id> --app-alert-destinations destinations.yaml
 doctl apps list-regions                  # add --format Slug,DataCenters,Disabled,Reason
 doctl apps tier instance-size list
@@ -127,8 +121,8 @@ doctl apps tier instance-size get <instance-size-slug>
 
 ```bash
 doctl apps list-buildpacks --format ID,Version   # columns: Name, ID, Version, Documentation
-# Upgrade (⚠️ requires approval — --trigger-deployment defaults to true, so this deploys)
-# --buildpack is required and wants the buildpack ID from list-buildpacks, not its name
+# (⚠️ requires approval — --trigger-deployment defaults to true, so this deploys)
+# --buildpack is required and wants the ID from list-buildpacks, not the name
 doctl apps upgrade-buildpack <id> --buildpack <buildpack-id>
 doctl apps upgrade-buildpack <id> --buildpack <buildpack-id> --major-version 3 --trigger-deployment=false   # (⚠️ requires approval)
 ```
@@ -149,11 +143,11 @@ cat app.yaml | doctl apps spec validate -                # a bare - reads stdin
 ### Local development (BETA)
 
 `doctl apps dev build` builds one component into a container image on your machine. It needs a running Docker
-daemon and a git repository. It builds and stops there: it does not run your app. On success it prints the
-`docker run -p 8080:8080 --rm <image>` line and leaves executing it to you.
+daemon and a git repo, and it stops at the image rather than running your app. On success it prints the
+`docker run -p 8080:8080 --rm <image>` line and leaves running it to you.
 
-`doctl apps dev config` writes a repo-local file, `.do/dev-config.yaml` at the top level of the git repo, never a
-global one. doctl also writes `.do/.gitignore` containing `dev-config.yaml`, so the file is never committed.
+`doctl apps dev config` writes `.do/dev-config.yaml` at the top level of the git repo, never a global file, and
+also writes `.do/.gitignore` containing `dev-config.yaml`, so it is never committed.
 
 ```bash
 # Component name is optional only when running interactively
@@ -162,7 +156,7 @@ doctl apps dev build <component> --spec .do/app.yaml     # default spec path is 
 doctl apps dev build <component> --app <id>              # fetch the spec from a live app instead
 doctl apps dev build <component> --env-file .env --build-command "npm run build"
 doctl apps dev build <component> --no-cache --timeout 15m30s --registry my-registry
-# Persist those flags to .do/dev-config.yaml instead of retyping them
+# Persist flags to .do/dev-config.yaml instead of retyping them
 doctl apps dev config set registry=my-registry no_cache=true
 doctl apps dev config set components.web.build_command="npm run build"
 doctl apps dev config unset no_cache components.web.build_command
@@ -173,7 +167,7 @@ doctl apps dev config set spec=app.yaml --dev-config /path/to/other-config.yaml
 
 **App IDs are UUIDs, not names.** Use `doctl apps list` to find the ID before running any app command. `doctl apps logs` is the one subcommand that also takes a name. Everything else rejects a name with `400 invalid uuid`.
 
-**The built-in help example for `update-alert-destinations` names a flag that does not exist.** It prints `--alert-destinations src/your-alert-destinations.yaml`. Copy it and you get `Error: unknown flag: --alert-destinations`. The real flag is `--app-alert-destinations`.
+**The built-in help example for `update-alert-destinations` names a flag that does not exist.** It prints `--alert-destinations`. Copy it and you get `Error: unknown flag: --alert-destinations`. The real flag is `--app-alert-destinations`.
 
 **`doctl apps tier list` and `doctl apps tier get` are hidden and dead.** They do not appear under `doctl apps tier --help` but still parse, then fail with `410 ... resource retired: the concept of tiers has been retired`. Use `doctl apps tier instance-size list` instead.
 

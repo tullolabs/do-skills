@@ -1,6 +1,6 @@
 ---
 name: do-registry
-description: Use for any DigitalOcean Container Registry task. List repositories, tags, and manifests, log Docker in and out, print Docker and Kubernetes pull credentials, delete tags and manifests, run and cancel garbage collection, and create or delete registries.
+description: DigitalOcean Container Registry. Use for repositories, tags, and manifests, Docker login, Docker and Kubernetes pull credentials, garbage collection, and creating or deleting registries.
 user-invocable: true
 argument-hint: "[list|tags|delete|gc]"
 ---
@@ -10,16 +10,10 @@ argument-hint: "[list|tags|delete|gc]"
 > Destructive ops need operator approval. Reads are always safe.
 > Auth: `doctl` is pre-authenticated. See `/do-ops` for auth contexts.
 
-`doctl registry` (singular) and `doctl registries` (plural) are two separate command trees, not aliases
-of each other. The singular tree acts on the account's one registry and takes no registry name. The
-plural tree takes `<registry-name>` as the first positional on nearly every leaf. Stay in the singular
-tree unless the account genuinely holds more than one registry.
+Stay in the singular `doctl registry` tree unless the account holds more than one registry; see the
+separate-trees gotcha below.
 
 ### The default registry
-
-`get` prints name, endpoint, and region. `--subscription-tier` is marked required on `create` even
-though it carries a default, so pass it explicitly; `options` gives you the valid slugs for it and for
-`--region`.
 
 ```bash
 doctl registry get
@@ -36,10 +30,9 @@ doctl registry delete --force                # (⚠️ requires approval) skip t
 
 ### Docker auth and pull credentials
 
-`login` writes a token into the local Docker config and `logout` revokes it through DigitalOcean's OAuth
-revoke endpoint. `docker-config` and `kubernetes-manifest` print credentials to stdout instead of
-touching anything, so both are safe to run. For clusters, `doctl kubernetes cluster registry add` in
-`/do-k8s` is the shorter path than applying a manifest by hand.
+`logout` revokes the token through DigitalOcean's OAuth revoke endpoint. `docker-config` and
+`kubernetes-manifest` only print to stdout, so both are safe to run. For clusters,
+`doctl kubernetes cluster registry add` in `/do-k8s` beats applying a manifest by hand.
 
 ```bash
 doctl registry login                                    # auth local docker; token expires in 30 days
@@ -57,9 +50,8 @@ doctl registry kubernetes-manifest --namespace kube-system
 
 ### Repositories, tags, and manifests
 
-Every `doctl registry repository` subcommand accepts an optional `--registry <name>` to target one
-registry out of several. That flag exists only here, on the singular tree. Tags and digests are both
-variadic, so you can pass several in one call.
+`--registry <name>` exists only on these subcommands. Tags and digests are both variadic, so you can
+pass several in one call.
 
 ```bash
 doctl registry repository list-v2                    # `list` was removed; v2 is the only lister
@@ -74,13 +66,9 @@ doctl registry repository delete-tag <repo-name> <tag> <tag> --force   # (⚠️
 doctl registry repository delete-manifest <repo-name> <manifest-digest>
 ```
 
-Deleting tags does not free quota. Storage only drops after garbage collection runs.
-
 ### Garbage collection
 
-`start` sweeps unreferenced blobs by default. `--include-untagged-manifests` widens the sweep,
-`--exclude-unreferenced-blobs` narrows it to nothing but manifests. `list` reports `FreedBytes` per past
-run, which is the number to check after a cleanup.
+`--exclude-unreferenced-blobs` narrows the sweep to manifests and nothing else.
 
 ```bash
 doctl registry garbage-collection start              # (⚠️ requires approval) deletes unreferenced blobs
@@ -93,9 +81,7 @@ doctl registry garbage-collection cancel <gc-uuid>   # (⚠️ requires approval
 
 ### Multiple registries
 
-`doctl registries list` is the only lister of registries; the singular tree has no `list`. Every leaf
-below except `list` and the two `options` commands wants `<registry-name>` first. Aliases are `regs` and
-`rs`, against `reg` and `r` for the singular tree.
+Aliases are `regs` and `rs`, against `reg` and `r` for the singular tree.
 
 ```bash
 doctl registries list
@@ -116,8 +102,8 @@ doctl registries kubernetes-manifest my-registry --namespace kube-system
 
 ### Repositories and garbage collection for a named registry
 
-Same subcommands as the singular tree, shifted one positional to the right. There is no `--registry`
-flag here — the registry name is the first argument, always.
+Same subcommands as the singular tree, shifted one positional right — the registry name is always the
+first argument, and there is no `--registry` flag here.
 
 ```bash
 doctl registries repository list-v2 my-registry
@@ -138,10 +124,10 @@ doctl registries garbage-collection cancel my-registry <gc-uuid>   # (⚠️ req
 
 **Container registry deletes don't free quota.** Tags and manifests disappear immediately; storage only drops after `doctl registry garbage-collection start`.
 
-**Garbage collection makes the registry read-only while it runs,** and it waits up to 15 minutes for outstanding write tokens to expire before starting. Do not run it mid-deploy.
+**Garbage collection makes the registry read-only while it runs,** and it waits up to 15 minutes for outstanding write tokens to expire before it starts. Do not run it mid-deploy.
 
-**`doctl registry` and `doctl registries` are separate trees, not aliases.** The plural takes `<registry-name>` as its first positional on every leaf except `list` and `options`; the singular takes no positional at all except on `create`. You do not have to switch trees just because the account has several registries — `doctl registry repository list-v2 --registry my-registry` works, and that `--registry` flag exists only on the singular `repository` subcommands. What the singular tree genuinely cannot do is list registries: `doctl registry list` does not exist, only `doctl registries list`.
+**`doctl registry` and `doctl registries` are separate trees, not aliases.** The plural takes `<registry-name>` as its first positional on every leaf except `list` and `options`; the singular takes no positional at all except on `create`. Several registries on the account do not force you into the plural tree — `doctl registry repository list-v2 --registry my-registry` works, and that `--registry` flag exists only on the singular `repository` subcommands. What the singular tree cannot do is list registries: `doctl registry list` does not exist, only `doctl registries list`.
 
-**The singular tree's `Usage:` lines and its own `Examples:` disagree.** `doctl registry delete --help` prints `Usage: doctl registry delete [flags]` with no positional, yet its example is `doctl registry delete example-registry`. Same for `garbage-collection cancel`, whose usage line shows no argument while the example passes a `gc-uuid`. Trust the usage line for flags, pass `<gc-uuid>` to `cancel` because there is no other way to name a run, and reach for `doctl registries` whenever you need to name a registry explicitly.
+**The singular tree's `Usage:` lines and its own `Examples:` disagree.** `doctl registry delete --help` prints `Usage: doctl registry delete [flags]` with no positional, yet its example is `doctl registry delete example-registry`. Same for `garbage-collection cancel`, whose usage line shows no argument while the example passes a `gc-uuid`. Trust the usage line for flags, pass `<gc-uuid>` to `cancel` because there is no other way to name a run, and use `doctl registries` whenever you need to name a registry explicitly.
 
-**`--subscription-tier` is required on `create` despite having a default.** Both `doctl registry create` and `doctl registries create` mark it `(required)` and print `(default "basic")` in the same line. Pass it anyway. Valid values come from `doctl registry options subscription-tiers`, and `--region` slugs from `doctl registry options available-regions`.
+**`--subscription-tier` is required on `create` despite having a default.** Both `doctl registry create` and `doctl registries create` mark it `(required)` and print `(default "basic")` on the same line. Pass it anyway. Valid values come from `doctl registry options subscription-tiers`, `--region` slugs from `doctl registry options available-regions`.

@@ -1,6 +1,6 @@
 ---
 name: do-functions
-description: Use for any DigitalOcean Functions task. Install serverless support, create and connect to a functions namespace, scaffold a local project, deploy and undeploy packages, invoke a function, read activation logs and results, and manage namespace access keys.
+description: DigitalOcean Functions. Use for serverless namespaces, scaffolding a local project, deploying and undeploying packages, invoking a function, activation logs and results, and namespace access keys.
 user-invocable: true
 argument-hint: "[connect|deploy|invoke|logs]"
 ---
@@ -12,8 +12,7 @@ argument-hint: "[connect|deploy|invoke|logs]"
 
 ### Local setup
 
-The serverless support is extra software installed under `doctl`. Until it is there, most subcommands refuse
-to run. `upgrade` reinstalls over the existing copy to match the current `doctl` version.
+Serverless support is extra software under `doctl`; `upgrade` reinstalls it to match the current `doctl` version.
 
 ```bash
 doctl serverless install                  # one-time, long-running, needs network
@@ -25,8 +24,7 @@ doctl serverless uninstall                # (⚠️ requires approval — remove
 
 ### Namespaces and access keys
 
-`connect` binds your local machine to one namespace at a time. `namespaces create` connects you to the new
-namespace automatically unless you pass `--no-connect`.
+`namespaces create` connects you to the new namespace unless you pass `--no-connect`.
 
 ```bash
 doctl serverless namespaces list
@@ -46,8 +44,8 @@ The secret half of a key is printed once at creation and never again.
 ### Projects and deploy
 
 `init` writes `project.yml`, a `.gitignore`, and one sample function at `packages/sample/hello/hello.js`
-(JavaScript unless you pass `--language`). `--remote-build` moves the build off your machine into the cloud;
-the local path is what `--yarn` and `--verbose-build` describe.
+(JavaScript unless you pass `--language`). `--remote-build` builds in the cloud; `--yarn` and
+`--verbose-build` only describe the local build.
 
 ```bash
 doctl serverless init <path>
@@ -56,8 +54,7 @@ doctl serverless deploy <directory>   # (⚠️ requires approval)
 doctl serverless deploy <directory> --remote-build   # (⚠️ requires approval)
 doctl serverless deploy <directory> --incremental --include sample/hello   # (⚠️ requires approval)
 
-# Dump the project's layout as JSON without deploying — useful for a CI step that
-# needs the function list before it builds.
+# the project's layout as JSON, without deploying
 doctl serverless get-metadata <directory>
 doctl serverless get-metadata <directory> --exclude sample/hello --no-triggers
 doctl serverless watch <directory>                   # redeploys on every change until interrupted
@@ -67,7 +64,7 @@ doctl serverless undeploy sample --packages          # (⚠️ requires approval
 doctl serverless undeploy --all                      # (⚠️ requires approval — every package and function)
 ```
 
-A committed project directory is also what `/do-apps` builds an App Platform functions component from.
+`/do-apps` builds an App Platform functions component from a committed project directory.
 
 ### Invoking and reading activations
 
@@ -94,8 +91,8 @@ doctl serverless activations result --function sample/hello --last
 
 **`doctl serverless install` is a one-time local step and most subcommands refuse to run without it.** `doctl serverless status` and `doctl serverless functions list` both fail with `serverless support is not installed (use doctl serverless install)`. `doctl serverless namespaces list` and `doctl serverless init` are the exceptions, since one is a plain API call and the other only writes local files.
 
-**Connect before you deploy.** `doctl serverless --help` spells the order out: install, then `doctl serverless connect`, then everything else. `connect` is what picks the single namespace that `deploy`, `functions invoke`, and `activations` all act on, so switching namespaces means running `connect` again, not passing a flag.
+**Connect before you deploy.** The order is install, then `doctl serverless connect`, then everything else. `connect` picks the single namespace that `deploy`, `functions invoke`, and `activations` all act on, so switching namespaces means running `connect` again, not passing a flag.
 
 **`activations logs` and `activations result` return different halves of the same record.** `logs` gives the function's log output and is the only one of the three with `--follow` for tailing. `result` gives just the value the function returned. `activations get` returns the whole record, both halves plus timing, and `--limit` on `logs` defaults to 1 while on `list` it defaults to 30.
 
-**`-f` means two different things inside `doctl serverless`.** On `activations logs` and `activations result` it is `--function`. On `functions invoke` and `activations list` it is `--full`. Write the long flag out and the ambiguity disappears.
+**`-f` means two different things inside `doctl serverless`.** On `activations logs` and `activations result` it is `--function`. On `functions invoke` and `activations list` it is `--full`. Write the long flag out.

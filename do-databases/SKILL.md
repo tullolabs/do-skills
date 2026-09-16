@@ -1,6 +1,6 @@
 ---
 name: do-databases
-description: Use for any DigitalOcean managed database task. Create, fork, migrate, resize, and delete Postgres, MySQL, MongoDB, Kafka, OpenSearch, and Valkey clusters, manage databases, users, connection pools, trusted-source firewalls, replicas, topics, indexes, and backups.
+description: DigitalOcean managed databases. Use for Postgres, MySQL, MongoDB, Kafka, OpenSearch, and Valkey clusters, plus users, connection pools, trusted-source firewalls, replicas, topics, indexes, forks, and backups.
 user-invocable: true
 argument-hint: "[list|connect|pool|firewall] [cluster]"
 ---
@@ -11,31 +11,20 @@ argument-hint: "[list|connect|pool|firewall] [cluster]"
 > Auth: `doctl` is pre-authenticated. See `/do-ops` for auth contexts.
 
 ```bash
-# List clusters
 doctl databases list
-
-# Get cluster details
 doctl databases get <id>
-
-# Connection string
 doctl databases connection <id>
-
-# List DBs within a cluster
 doctl databases db list <id>
-
-# List users
 doctl databases user list <id>
+doctl databases get-ca <id>          # required for sslmode=verify-full clients
 
-# CA cert — required for sslmode=verify-full clients
-doctl databases get-ca <id>
-
-# Trusted sources (the firewall). Empty list means open to the internet. Add rules on day one.
+# Trusted sources are the firewall
 doctl databases firewalls list <id>
 doctl databases firewalls append <id> --rule ip_addr:<ip>       # (⚠️ requires approval)
 doctl databases firewalls append <id> --rule app:<app-uuid>     # (⚠️ requires approval)
 doctl databases firewalls append <id> --rule droplet:<id>       # (⚠️ requires approval)
 
-# Connection pooling (PostgreSQL — use this instead of raising max connections)
+# Connection pooling is PostgreSQL only — use it instead of raising max connections
 doctl databases pool list <id>
 doctl databases pool create <id> <pool-name> --mode transaction --size 10 --db <dbname> --user <user>   # (⚠️ requires approval)
 
@@ -47,15 +36,15 @@ doctl databases storage-autoscale get <id>
 doctl databases delete <id>
 ```
 
-Engine slugs the API currently offers: `pg`, `advanced_pg`, `mysql`, `advanced_mysql`, `mongodb`, `kafka`, `opensearch`, `valkey`.
-Use `valkey` for anything new. `redis` is still a live slug for reading and managing existing Caching clusters,
-but DO stopped accepting Caching cluster creates on 2025-04-30, so `create --engine redis` fails even though
-the help text still lists it. `doctl databases options engines` reflects what you can actually create.
+Engine slugs: `pg`, `advanced_pg`, `mysql`, `advanced_mysql`, `mongodb`, `kafka`, `opensearch`, `valkey`.
+Use `valkey` for new work. `redis` still reads and manages existing Caching clusters, but DO stopped accepting
+Caching cluster creates on 2025-04-30, so `create --engine redis` fails even though the help still lists it.
+`doctl databases options engines` lists what you can actually create.
 
 ### Cluster lifecycle
 
 `create` and `fork` take the new cluster's name as a positional; every other input is a flag. `fork` requires
-`--restore-from-cluster-id` and `migrate` requires `--region`. Check size and version with `options` first.
+`--restore-from-cluster-id`, `migrate` requires `--region`.
 
 ```bash
 # --- Lookups (read-only) ---
@@ -65,20 +54,18 @@ doctl databases options slugs --engine pg       # --engine is required on slugs
 doctl databases options regions --engine pg
 
 # --- Lifecycle ---
-# Create a cluster (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl databases create my-cluster --engine pg --version <version> --region nyc1 --size db-s-1vcpu-1gb --num-nodes 1 --wait
-
 # Restore into a new cluster from another cluster's backup (⚠️ requires approval)
 doctl databases create my-cluster --restore-from-cluster-name <cluster-name> --restore-from-timestamp "2006-01-02 15:04:05 +0000 UTC"
-
-# Fork an existing cluster, referenced by ID, into a new one (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl databases fork my-fork --restore-from-cluster-id <id> --wait
-# Move a cluster to another region (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl databases migrate <id> --region sfo2 --wait
 ```
 
-With no flags, `create` gives you a single-node `db-s-1vcpu-1gb` PostgreSQL cluster in `nyc1`. Both
-restore paths use the most recent backup when `--restore-from-timestamp` is omitted.
+With no flags, `create` gives a single-node `db-s-1vcpu-1gb` PostgreSQL cluster in `nyc1`. Both restore
+paths use the most recent backup when `--restore-from-timestamp` is omitted.
 
 ### Databases and users
 
@@ -108,14 +95,14 @@ doctl databases pool update <id> <pool-name> --size 20 --mode session   # (⚠�
 doctl databases pool delete <id> <pool-name>                            # (⚠️ requires approval)
 ```
 
-`--db` and `--size` are required on `pool create`; omitting `--user` points the pool at the inbound user
-instead of failing. `--mode` takes `session`, `transaction`, or `statement` and defaults to `transaction`,
-not to the `--mode session` the help renders.
+`pool create` requires `--db` and `--size`; omitting `--user` points the pool at the inbound user instead
+of failing. `--mode` takes `session`, `transaction`, or `statement` and defaults to `transaction`, not the
+`session` its help renders.
 
 ### Firewall rules (trusted sources)
 
 Every rule is a `<type>:<value>` pair. Valid types are `droplet`, `k8s`, `ip_addr`, `tag`, and `app`.
-`append` adds one rule, `remove` takes a rule UUID from `firewalls list`, `replace` overwrites the whole set.
+`remove` takes a rule UUID from `firewalls list`.
 
 ```bash
 doctl databases firewalls append <id> --rule tag:example-tag    # (⚠️ requires approval)
@@ -192,8 +179,8 @@ doctl databases events list <id>   # cluster-level events: resizes, migrations, 
 
 **Once rules exist, "connection timed out" is the firewall, not the credentials.** A wrong password fails fast with an auth error. A timeout means the source IP is not on the trusted list.
 
-**The flag on `firewalls replace` is `--rule`, not `--rules`.** Both the `Usage:` line and the built-in example print `--rules`, and both are wrong — `doctl` answers with `Error: unknown flag: --rules`. The same command silently discards every rule you leave out of the comma-separated list, so read `firewalls list` first and re-pass what you want to keep.
+**The flag on `firewalls replace` is `--rule`, not `--rules`.** The `Usage:` line and the built-in example both print `--rules`, and both are wrong — `doctl` answers with `Error: unknown flag: --rules`. `replace` also silently discards every rule you leave out of the comma-separated list, so read `firewalls list` first and re-pass what you want to keep.
 
 **`topics create` documents its own flags with underscores that do not exist.** The example reads `--replication_factor 2 --partition_count 4`; the registered flags are `--replication-factor` and `--partition-count`. Underscores fail with `Error: unknown flag: --replication_factor`.
 
-**`backups` has no `list` subcommand.** It is `doctl databases backups <id>`, with the cluster ID as the only positional. `doctl databases backups list <id>` reads `list` as the cluster ID and looks up a cluster that does not exist.
+**`backups` has no `list` subcommand.** It is `doctl databases backups <id>`, cluster ID as the only positional. `doctl databases backups list <id>` reads `list` as the cluster ID and looks up a cluster that does not exist.

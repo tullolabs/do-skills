@@ -78,5 +78,18 @@ moves in the direction you expect, and spot-check a group's longest-named comman
 
 One skill per product area, named `do-<product>`, each standalone and invocable as
 `/do-<product>`. `do-ops` is the index and owns auth, billing, and cross-cutting gotchas.
-A skill's frontmatter `description` is always resident in an agent's context, so keep it
-tight and packed with the words someone would actually search for.
+A skill's frontmatter `description` is always resident in every agent's context, whether or
+not any DigitalOcean work happens, so it is the most expensive text in the repo per byte. All
+fifteen together are the budget, currently ~2800 chars. Keep each one 140 to 240 chars.
+
+Descriptions route, so distinctive nouns are the whole payload. `Kafka`, `BYOIP`, `kubeconfig`,
+and `CSPM` earn their space because only one skill contains them. Generic verbs do not: every
+skill can `list`, `create`, `update`, and `delete`, so those words move no decision and are
+pure cost. Name each noun once. `manage backups and SSH keys` after `create a server with an
+SSH key` pays twice for one routing signal.
+
+Bodies are different. They load only when a skill fires, and their job is to stop an agent
+guessing. A gotcha that prevents one failed command earns back far more than it costs, so
+never shorten a body by dropping a fact, a number, an error string, or a `(⚠️ requires
+approval)` marker. Cut restatement instead: prose above a fence repeating what the fence's own
+comments already say, and comments that only rename the command under them.

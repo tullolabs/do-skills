@@ -1,6 +1,6 @@
 ---
 name: do-monitoring
-description: Use for any DigitalOcean Monitoring task. Create metric alert policies on droplets, load balancers, and database clusters, set up uptime checks against a URL or IP, attach latency, downtime, and SSL expiry alerts to a check, and list, update, or delete either.
+description: DigitalOcean Monitoring. Use for metric alert policies on droplets, load balancers, and database clusters, and uptime checks against a URL or IP with latency, downtime, and SSL expiry alerts.
 user-invocable: true
 argument-hint: "[alert|uptime|create|delete]"
 ---
@@ -12,8 +12,8 @@ argument-hint: "[alert|uptime|create|delete]"
 
 ### Metric alert policies
 
-`--type` is validated on your machine before any request goes out, so a typo fails instantly. Target a fixed
-list with `--entities` or every tagged resource with `--tags`. `--window` takes `5m`, `10m`, `30m`, or `1h`.
+Target a fixed list with `--entities` or every tagged resource with `--tags`. `--window` takes `5m`, `10m`,
+`30m`, or `1h`.
 
 ```bash
 doctl monitoring alert list
@@ -50,13 +50,13 @@ doctl monitoring alert update <alert-policy-uuid> --type v1/insights/droplet/cpu
 doctl monitoring alert delete <alert-policy-uuid>    # (⚠️ requires approval)
 ```
 
-The `update` help example re-sends every field rather than the one changed, so treat it as a replacement.
-Droplet IDs for `--entities` come from `/do-droplets`; database entities are cluster UUIDs.
+`update` replaces the whole policy, so re-send every field, not just the one you changed. Droplet IDs for
+`--entities` come from `/do-droplets`; database entities are cluster UUIDs.
 
 ### Uptime checks and their alerts
 
-A check monitors one endpoint over HTTP, HTTPS, or ping from the regions you name. Alerts nest under a check,
-so the check has to exist first and every alert subcommand repeats its ID.
+A check monitors one endpoint over `--type` `http`, `https`, or `ping` from the regions you name. Alerts nest
+under a check, so the check has to exist first.
 
 ```bash
 doctl monitoring uptime list
@@ -88,12 +88,12 @@ takes `2m`, `3m`, `5m`, `10m`, `15m`, `30m`, or `1h`.
 
 ## Gotchas
 
-**Nothing on `monitoring alert create` is a required flag, so the validation errors arrive one at a time.** Run it bare and you get `'' is not a valid alert policy type`. Add `--type` and you get `comparator must be GreaterThan or LessThan`. Add `--compare` and you get `must provide either emails or slack details to send the alert to`. Supply `--type`, `--compare`, and a destination together instead of discovering them one round-trip at a time.
+**Nothing on `monitoring alert create` is a required flag, so the validation errors arrive one at a time.** Run it bare and you get `'' is not a valid alert policy type`. Add `--type` and you get `comparator must be GreaterThan or LessThan`. Add `--compare` and you get `must provide either emails or slack details to send the alert to`. Supply `--type`, `--compare`, and a destination together.
 
 **`uptime create` takes the check name as a positional, but `uptime update` takes it as `--name`.** The help example for create omits the positional entirely, and copying it verbatim fails with `(uptime.create) command is missing required arguments`. The name goes immediately after `create`, before any flag.
 
-**Every uptime alert subcommand except `create` and `list` wants two positionals.** The order is always `<uptime-check-id> <uptime-alert-id>` for `get`, `update`, and `delete`. There is no standalone uptime alert and no way to look one up without its parent check ID.
+**Every uptime alert subcommand except `create` and `list` wants two positionals.** The order is always `<uptime-check-id> <uptime-alert-id>` for `get`, `update`, and `delete`. There is no way to look up an alert without its parent check ID.
 
-**`doctl` cannot disable an uptime check once it exists.** `--enabled` is on `create` and defaults to true, but `update` has no such flag and its help says outright that checks can only be disabled from the control panel or the public API. Delete the check, or delete its alerts and leave it running.
+**`doctl` cannot disable an uptime check once it exists.** `--enabled` is on `create` and defaults to true, but `update` has no such flag and its help says checks can only be disabled from the control panel or the public API. Delete the check, or delete its alerts and leave it running.
 
-**`doctl`'s `--type` validator is narrower than the monitoring API, so "not a valid alert policy type" does not mean the alert is impossible.** doctl 1.168 rejects `public_inbound_bandwidth`, `private_outbound_bandwidth`, `private_inbound_bandwidth`, `load_1`/`load_5` for dbaas, and the whole `v1/droplet/autoscale_alerts/` family, all of which the API documents as valid. The rejection happens client-side before any request, so the list above is what the binary accepts, not what DigitalOcean supports. For a type doctl refuses, post to `/v2/monitoring/alerts` directly. See `/do-ops` for the raw API recipe.
+**`doctl`'s `--type` validator is narrower than the monitoring API, so "not a valid alert policy type" does not mean the alert is impossible.** doctl 1.168 rejects `public_inbound_bandwidth`, `private_outbound_bandwidth`, `private_inbound_bandwidth`, `load_1`/`load_5` for dbaas, and the whole `v1/droplet/autoscale_alerts/` family, all of which the API documents as valid. The rejection happens client-side before any request, so the list above is what the binary accepts, not what DigitalOcean supports. For a type doctl refuses, post to `/v2/monitoring/alerts` directly; see `/do-ops` for the raw API recipe.

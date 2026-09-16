@@ -1,6 +1,6 @@
 ---
 name: do-dns
-description: DigitalOcean DNS and domain operations with doctl. Use for listing domains, adding or deleting a zone, and creating, updating, or deleting DNS records such as A, CNAME, TXT, and MX. Also covers delegating nameservers to ns1, ns2, and ns3.digitalocean.com.
+description: DigitalOcean DNS. Use for domains and zones, A, CNAME, TXT, and MX records, and delegating nameservers to ns1, ns2, ns3.digitalocean.com.
 user-invocable: true
 argument-hint: "[list|add|update|delete] [domain]"
 ---
@@ -10,20 +10,17 @@ argument-hint: "[list|add|update|delete] [domain]"
 > Destructive ops need operator approval. Reads are always safe.
 > Auth: `doctl` is pre-authenticated. See `/do-ops` for auth contexts.
 
-Managing a domain you already own. Two levels: the **domain** resource (the zone) and the **records** inside it.
-
 ```bash
 # --- Domain (zone) ---
 
-# List domains
 doctl compute domain list
 
-# Get a domain (shows TTL + zone file)
+# Shows TTL + zone file
 doctl compute domain get example.com
 
-# Add a domain you already own to DO (⚠️ requires approval)
+# Add a domain you already own (⚠️ requires approval)
 doctl compute domain create example.com
-# ...optionally seed an A record for @ at the same time:
+# ...and seed an A record for @
 doctl compute domain create example.com --ip-address <ip>   # (⚠️ requires approval)
 
 # Remove a domain AND all its records (⚠️ requires approval — destructive)
@@ -31,40 +28,39 @@ doctl compute domain delete example.com
 
 # --- Records ---
 
-# List DNS records for a domain
 doctl compute domain records list example.com
 
-# Create A record (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl compute domain records create example.com \
   --record-type A \
   --record-name @ \
   --record-data <ip>
 
-# Create CNAME (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl compute domain records create example.com \
   --record-type CNAME \
   --record-name www \
   --record-data @
 
-# Create TXT record — domain verification / SPF (⚠️ requires approval)
+# Domain verification / SPF (⚠️ requires approval)
 doctl compute domain records create example.com \
   --record-type TXT \
   --record-name @ \
   --record-data "v=spf1 include:_spf.google.com ~all"
 
-# Create MX record — mail routing, priority is a separate flag (⚠️ requires approval)
+# Mail routing; priority is a separate flag (⚠️ requires approval)
 doctl compute domain records create example.com \
   --record-type MX \
   --record-name @ \
   --record-data aspmx.l.google.com. \
   --record-priority 1
 
-# Update an existing record (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl compute domain records update example.com \
   --record-id <id> \
   --record-data <new-value>
 
-# Delete record (⚠️ requires approval)
+# (⚠️ requires approval)
 doctl compute domain records delete example.com <record-id>
 ```
 

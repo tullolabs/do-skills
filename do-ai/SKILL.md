@@ -1,6 +1,6 @@
 ---
 name: do-ai
-description: Use for any DigitalOcean Gradient AI and inference task. Create and route agents, manage knowledge bases and indexing jobs, run scenario sets and simulations, manage vector databases and dedicated GPU inference endpoints, and call the serverless chat, embeddings, and image APIs.
+description: DigitalOcean Gradient AI. Use for agents and agent routes, knowledge bases, indexing jobs, scenario sets and simulations, vector databases, dedicated GPU inference, and the serverless chat, embeddings, and image APIs.
 user-invocable: true
 argument-hint: "[list|create|attach|invoke] [agent]"
 ---
@@ -10,20 +10,15 @@ argument-hint: "[list|create|attach|invoke] [agent]"
 > Destructive ops need operator approval. Reads are always safe.
 > Auth: `doctl` is pre-authenticated. See `/do-ops` for auth contexts.
 
-Four separate command trees. `doctl gradient` also answers to `ai`, `genai`, and `gradientai`; `vector-databases`
-is `vdb`, `dedicated-inference` is `di`, and `serverless-inference` is `inference` or `si`.
+Aliases: `doctl gradient` also answers to `ai`, `genai`, and `gradientai`; `vector-databases` is `vdb`,
+`dedicated-inference` is `di`, and `serverless-inference` is `inference` or `si`.
 
 ### Gradient agents
 
-`agent create` takes everything as a flag. `--name`, `--project-id`, `--model-id`, `--region`, and
-`--instruction` are all required; model and region IDs come from `list-models` and `list-regions`.
-
-Two route types hang off `agent`, neither taking a positional. `agent route` links one agent to another — a
-parent hands the conversation to a child when `--if-case` matches. `agent functionroute` wires the agent to a
-DigitalOcean Functions function by namespace and name, with JSON input and output schemas.
+Model and region IDs come from `list-models` and `list-regions`. Neither route subcommand takes a positional.
 
 ```bash
-# Create an agent — all five flags are required (⚠️ requires approval — billable)
+# all five flags are required (⚠️ requires approval — billable)
 doctl gradient agent create --name "my-agent" --project-id <project-id> --model-id <model-id> \
   --region tor1 --instruction "You answer billing questions" --knowledge-base-id <knowledge-base-id>
 
@@ -64,9 +59,7 @@ doctl gradient agent functionroute delete --agent-id <agent-id> --function-id <f
 
 ### Knowledge bases
 
-`create` needs `--data-sources` as a JSON array up front. After that, `add-datasource` takes one source per call,
-either a Spaces bucket or a web crawler. Every add kicks off an indexing job, and the `*-indexing-job*` commands
-want that job UUID, not the knowledge base UUID.
+Every `add-datasource` call kicks off an indexing job.
 
 ```bash
 # Create — --data-sources required; also takes --database-id and --vpc_uuid (underscore) (⚠️ requires approval)
@@ -98,8 +91,8 @@ doctl gradient knowledge-base detach <agent-id> <knowledge-base-id>   # (⚠️ 
 
 ### Models, regions, and OpenAI keys
 
-An "OpenAI key" here is your own `sk-...` key from OpenAI, stored on DigitalOcean so a Gradient agent can run on an
-OpenAI model. The help for `openai-key delete` says a key linked to an agent cannot be deleted until the agent drops it.
+An "OpenAI key" is your own `sk-...` key stored on DigitalOcean so a Gradient agent can run on an OpenAI model.
+A key linked to an agent cannot be deleted until the agent drops it.
 
 ```bash
 doctl gradient list-models                               # --format Id,Name,isFoundational
@@ -116,7 +109,7 @@ doctl gradient openai-key delete <openai-key-id>         # (⚠️ requires appr
 ### Scenario sets and simulation runs
 
 A scenario set is the test cases; a simulation run plays one against an agent and produces journeys, each judged
-success, failure, or inconclusive. `scenario-set generate` returns in `GENERATING` status, so poll `get` first.
+success, failure, or inconclusive. `generate` returns in `GENERATING` status, so poll `get` first.
 
 ```bash
 # --- Scenario sets. create takes --file or --scenarios, never both ---
@@ -151,8 +144,8 @@ doctl gradient simulation-run delete <run-id>                # (⚠️ requires 
 
 ### Vector databases
 
-Weaviate clusters, sized by tier rather than node count. `credentials` returns the admin `UserID` and `APIToken`
-you feed to a Weaviate client; `get` returns the HTTP and gRPC endpoints to pair with them.
+Weaviate clusters, sized by tier rather than node count. A Weaviate client needs the admin `UserID` and
+`APIToken` from `credentials` plus the endpoints from `get`.
 
 ```bash
 doctl vector-databases list
@@ -173,9 +166,8 @@ doctl vector-databases delete <vector-database-id>                           # (
 
 ### Dedicated inference
 
-Your own GPU endpoints running a chosen model. `create` and `update` take a spec file, not per-field flags. Check
-`get-gpu-model-config` first: it maps model slugs to compatible GPU slugs and flags gated models, which need
-`--hugging-face-token`.
+Your own GPU endpoints running a chosen model. Check `get-gpu-model-config` first: it maps model slugs to
+compatible GPU slugs and flags gated models, which need `--hugging-face-token`.
 
 ```bash
 doctl dedicated-inference get-sizes               # GPUSlug, PricePerHour, GPUVramGB, Regions
@@ -197,8 +189,8 @@ doctl dedicated-inference delete <dedicated-inference-id>   # (⚠️ requires a
 
 ### Serverless inference
 
-Pay-per-token calls to DigitalOcean's hosted models at `https://inference.do-ai.run`. Every subcommand takes
-`--model` plus a prompt flag for one-off calls, or `--request <file>` for a full JSON body (`-` reads stdin).
+Pay-per-token calls to hosted models at `https://inference.do-ai.run`. Every subcommand takes `--model` plus a
+prompt flag, or `--request <file>` for a full JSON body (`-` reads stdin).
 
 ```bash
 doctl serverless-inference models list            # only the models your key can reach
@@ -218,12 +210,12 @@ doctl serverless-inference async-invoke get <request-id>   # output appears only
 
 ## Gotchas
 
-**`gradient agent create` wants `--name`, even though the usage line shows a positional.** The help prints `doctl gradient agent create <agent-name>... [flags]`, but `--name` is marked `(required)` and the help's own example passes no positional at all. Use the flags. The same mismatch appears on `agent apikeys create`.
+**`gradient agent create` wants `--name`, even though the usage line shows a positional.** The help prints `doctl gradient agent create <agent-name>... [flags]`, but `--name` is marked `(required)` and the help's own example passes no positional at all. The same mismatch appears on `agent apikeys create`.
 
-**`serverless-inference` authenticates against a different API than the rest of `doctl`.** Its help says the `--access-token` value may be a model access key or a DigitalOcean personal access token with full access, and that all scopes must be granted. A narrowly scoped token that works everywhere else fails here, so mint a model access key rather than reusing a restricted PAT.
+**`serverless-inference` authenticates against a different API than the rest of `doctl`.** Its help says `--access-token` takes either a model access key or a DigitalOcean personal access token with full access and all scopes granted. A narrowly scoped token that works everywhere else fails here, so mint a model access key rather than reusing a restricted PAT.
 
-**Indexing job commands take the job UUID, and `list-indexing-jobs` is account-wide.** There is no knowledge base filter on `list-indexing-jobs`, so on a busy account you get every job for every knowledge base. Get the one you care about from `doctl gradient knowledge-base get <knowledge-base-id>`, which reports `LastIndexingJob`.
+**Indexing job commands take the job UUID, and `list-indexing-jobs` is account-wide.** It has no knowledge base filter, so on a busy account you get every job for every knowledge base. Get the one you care about from `doctl gradient knowledge-base get <knowledge-base-id>`, which reports `LastIndexingJob`.
 
-**`vector-databases tags` replaces the tag list, and `restore` returns before the restore is done.** Passing `--tag production` on a database already tagged `staging` leaves only `production`. Restore is explicitly asynchronous — poll `doctl vector-databases restore-status <vector-database-id> <backup-id>` with both IDs until `Status` settles, and read the `Error` column when it does not.
+**`vector-databases tags` replaces the tag list, and `restore` returns before the restore is done.** Passing `--tag production` on a database already tagged `staging` leaves only `production`. Poll `doctl vector-databases restore-status <vector-database-id> <backup-id>` with both IDs until `Status` settles, and read the `Error` column when it does not.
 
-**`dedicated-inference create` needs a spec file whose schema `--help` never shows.** The only flags are `--spec` and `--hugging-face-token`; the field list lives in the Dedicated-Inference section of the DigitalOcean API reference that the help text links to. Do not guess the spec keys — dump a working endpoint with `doctl dedicated-inference get <dedicated-inference-id> -o json` and edit that.
+**`dedicated-inference create` needs a spec file whose schema `--help` never shows.** The only flags are `--spec` and `--hugging-face-token`; the field list lives in the Dedicated-Inference section of the DigitalOcean API reference the help links to. Do not guess the spec keys — dump a working endpoint with `doctl dedicated-inference get <dedicated-inference-id> -o json` and edit that.

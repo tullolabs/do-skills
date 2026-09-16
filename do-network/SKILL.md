@@ -1,6 +1,6 @@
 ---
 name: do-network
-description: DigitalOcean networking operations with doctl. Use for creating VPCs and peerings, editing cloud firewall rules, building load balancers, uploading SSL certificates, and assigning reserved IPv4 and IPv6 addresses. Also covers NAT gateways and Partner Network Connect.
+description: DigitalOcean networking. Use for VPCs and peerings, cloud firewall rules, load balancers, SSL certificates, reserved IPv4 and IPv6, NAT gateways, BYOIP, and Partner Network Connect.
 user-invocable: true
 argument-hint: "[list|create|update|delete] [vpc]"
 ---
@@ -10,11 +10,9 @@ argument-hint: "[list|create|update|delete] [vpc]"
 > Destructive ops need operator approval. Reads are always safe.
 > Auth: `doctl` is pre-authenticated. See `/do-ops` for auth contexts.
 
-Firewalls, load balancers, and NAT gateways all take VPC and droplet IDs. Collect them from `doctl vpcs list` first.
-
 ### VPCs
 
-Every region already has a default VPC. Create one only when you want a separate private network.
+Every region already has a default VPC; create one only for a separate private network.
 
 ```bash
 doctl vpcs list --format Name,IPRange,Region,Default
@@ -37,9 +35,9 @@ doctl vpcs peerings delete <peering-id> --wait            # (⚠️ requires app
 
 ### Cloud firewalls
 
-A rule is one comma-separated key-value string needing `protocol`, `ports`, and one of `address`,
-`droplet_id`, `load_balancer_uid`, `kubernetes_id`, or `tag`. Multiple rules go in one quoted flag,
-space-separated. `ports` takes `22`, `8000-9000`, or `all`.
+A rule is a comma-separated key-value string with `protocol`, `ports`, and one of `address`,
+`droplet_id`, `load_balancer_uid`, `kubernetes_id`, or `tag`. Space-separate multiple rules inside
+one quoted flag. `ports` takes `22`, `8000-9000`, or `all`.
 
 ```bash
 doctl compute firewall list
@@ -69,9 +67,8 @@ doctl compute firewall delete <firewall-id>
 
 ### Load balancers
 
-Forwarding rules are comma-separated key-value strings of `entry_protocol`, `entry_port`,
-`target_protocol`, `target_port`, plus optional `certificate_id` or `tls_passthrough`. Protocols:
-`http`, `https`, `http2`, `http3`, `tcp`, `udp`.
+Forwarding rules take `entry_protocol`, `entry_port`, `target_protocol`, `target_port`, plus optional
+`certificate_id` or `tls_passthrough`. Protocols: `http`, `https`, `http2`, `http3`, `tcp`, `udp`.
 
 ```bash
 doctl compute load-balancer list --format ID,Name,IP,Status,ForwardingRules
@@ -115,9 +112,6 @@ doctl compute certificate delete <certificate-id>     # (⚠️ requires approva
 
 ### Reserved IPs
 
-IPv4 and IPv6 are separate trees with different shapes. Attaching IPv4 lives under `reserved-ip-action`.
-IPv6 puts `assign` and `unassign` on the resource itself.
-
 ```bash
 # --- IPv4 ---
 doctl compute reserved-ip list --region sgp1      # omit --region to list them all
@@ -143,7 +137,7 @@ doctl compute reserved-ipv6 delete <reserved-ipv6>               # (⚠️ requi
 ### NAT gateways and BYOIP
 
 A VPC NAT gateway gives private droplets one stable egress IP. `--vpcs` takes a VPC ID, optionally
-suffixed with `:default` to make that gateway the VPC's default route.
+suffixed `:default` to make that gateway the VPC's default route.
 
 ```bash
 doctl compute vpc-nat-gateway list
@@ -187,14 +181,14 @@ doctl network attachment delete <partner-attachment-id> --wait            # (⚠
 
 ## Gotchas
 
-**`firewall update` and `load-balancer update` reset every attribute you leave out.** Both help texts say the request must contain a full representation of the resource and that any attribute not provided is reset to its default value. Run `get` first and replay every flag, or skip `update` entirely and use `add-rules`, `remove-rules`, `add-forwarding-rules`, and `add-droplets`, which only touch what you name.
+**`firewall update` and `load-balancer update` reset every attribute you leave out.** Both help texts say the request must be a full representation of the resource, and any attribute not provided resets to its default value. Run `get` first and replay every flag, or skip `update` and use `add-rules`, `remove-rules`, `add-forwarding-rules`, and `add-droplets`, which touch only what you name.
 
-**A cloud firewall is default-deny the moment it attaches.** `create` refuses to run without at least one inbound or outbound rule, and anything you did not allow is dropped. The symptom is a connection that hangs and times out rather than returning `connection refused`. Run `doctl compute firewall list-by-droplet <droplet-id>` before blaming credentials or the service.
+**A cloud firewall is default-deny the moment it attaches.** `create` refuses to run without at least one inbound or outbound rule, and anything you did not allow is dropped. The symptom is a connection that hangs and times out instead of returning `connection refused`. Check `doctl compute firewall list-by-droplet <droplet-id>` before blaming credentials or the service.
 
-**You cannot delete a VPC that is a region's default network.** `doctl vpcs delete` rejects it. Promote another VPC first with `doctl vpcs update <vpc-id> --default=true`, then delete the original. A VPC also has to be empty, so move or destroy the droplets, databases, and load balancers inside it first.
+**You cannot delete a VPC that is a region's default network.** `doctl vpcs delete` rejects it. Promote another VPC first with `doctl vpcs update <vpc-id> --default=true`, then delete the original. A VPC must also be empty, so move or destroy the droplets, databases, and load balancers inside it first.
 
-**IPv4 assign and unassign are not subcommands of `reserved-ip`.** They live under `doctl compute reserved-ip-action`, and `assign` takes two positionals in the order `<reserved-ip> <droplet-id>`. `doctl compute reserved-ip assign` fails with `unknown command`. Reserved IPv6 is the opposite: `assign` and `unassign` sit directly on `doctl compute reserved-ipv6`.
+**IPv4 assign and unassign are not subcommands of `reserved-ip`.** They live under `doctl compute reserved-ip-action`, and `assign` takes positionals in the order `<reserved-ip> <droplet-id>`. `doctl compute reserved-ip assign` fails with `unknown command`. Reserved IPv6 is the opposite: `assign` and `unassign` sit directly on `doctl compute reserved-ipv6`.
 
-**Reserved IPs are pinned to the region they were created in.** You can only assign one to a droplet in that same region, and `reserved-ip create` rejects `--region` alongside `--droplet-id` because the droplet already fixes the region. Unassigned IPv4 reserved addresses keep billing, so delete them instead of parking them.
+**Reserved IPs are pinned to the region they were created in.** Assign one only to a droplet in that same region; `reserved-ip create` rejects `--region` alongside `--droplet-id` because the droplet already fixes the region. Unassigned IPv4 reserved addresses keep billing, so delete them rather than park them.
 
-**A `lets_encrypt` certificate only issues for domains DigitalOcean already serves DNS for.** Every `--dns-names` entry must resolve through DO nameservers or the certificate sits in `pending` and then flips to `error`. Check with `doctl compute certificate get <certificate-id> --format State`, and see `/do-dns` for delegating the zone. A `custom` certificate skips that but needs all three PEM files: leaf, chain, and private key.
+**A `lets_encrypt` certificate only issues for domains DigitalOcean already serves DNS for.** Every `--dns-names` entry must resolve through DO nameservers or the certificate sits in `pending` and then flips to `error`. Check `doctl compute certificate get <certificate-id> --format State`; see `/do-dns` for delegating the zone. A `custom` certificate skips that but needs all three PEM files: leaf, chain, and private key.
