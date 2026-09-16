@@ -50,10 +50,17 @@ curl -X GET "https://api.digitalocean.com/v2/<resource>" \
 All Spaces config comes from `.env`. Bucket name, endpoint, and CDN URL are environment-specific.
 
 `doctl` cannot read or write Spaces objects. It only manages access keys (`doctl spaces keys`) and the CDN.
-File operations need a separate S3 client. Check one is present before you promise an upload:
+Writes, listings, and deletes need a separate S3 client. Check one is present before you promise an upload:
 
 ```bash
 command -v aws || brew install awscli    # or: pipx install s3cmd
+```
+
+**Reading a public file needs none of this.** A `public-read` object is a plain GET on its CDN URL, so no
+credentials, no S3 client, no `.env`. Only reach for the AWS CLI when you need to write, list, or delete.
+
+```bash
+curl -sSL -o local.jpg $DO_SPACES_CDN/project-name/images/file.jpg
 ```
 
 ### Bucket Structure
