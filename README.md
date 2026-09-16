@@ -4,18 +4,19 @@ DigitalOcean operations skills for AI agents. Fifteen skills, one per product ar
 an agent working on app logs doesn't load 180 lines of Spaces file operations it will
 never read.
 
-Coverage is the whole `doctl` command tree: 505 of its 511 commands are documented, and
-the six that aren't are shell-completion plumbing named in `validate.py`. That's a checked
-claim, not a boast. Gate 2 of the validator walks the live command tree and fails if
-anything is missing.
+Coverage is the whole `doctl` command tree: 505 of its 511 commands are documented. The
+six left out are `help`, `version`, and the four shell-completion generators, each named
+with a reason in `validate.py`. That's a checked claim, not a boast. Gate 2 of the
+validator walks the live command tree and fails if anything is missing.
 
 Every command was verified against `doctl --help` before being written, and the factual
 claims were checked against the DigitalOcean docs. Where the docs and the CLI disagree,
-the skill says which one to believe. That work turned up six places where doctl's own
-help examples are uncopyable — `databases firewalls replace` advertises `--rules` when the
-flag is `--rule`, `apps update-alert-destinations` advertises `--alert-destinations` when
-it is `--app-alert-destinations`, and so on. Each one is called out in the skill that
-owns it.
+the skill says which one to believe. That work turned up ten commands whose own `--help`
+prints something that does not run — `databases firewalls replace` advertises `--rules`
+when the flag is `--rule`, `apps update-alert-destinations` advertises
+`--alert-destinations` when it is `--app-alert-destinations`, `monitoring uptime create`
+omits a required positional, and so on. Each one is called out in the skill that owns it,
+so an agent that copies from DigitalOcean's docs knows why the copy failed.
 
 ## The skills
 
@@ -39,7 +40,7 @@ owns it.
 
 ## Install
 
-All seven, for every project on the machine:
+All fifteen, for every project on the machine:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/tullolabs/do-skills/main/install.sh | bash
@@ -69,7 +70,35 @@ Destructive actions (delete, destroy, reset, create) need operator approval. Rea
 are always safe. Every skill repeats this at the top, because an agent that loads
 only `/do-droplets` still needs to know it.
 
+## validate.py
+
+The repo checks itself. `validate.py` takes no dependencies and runs two gates against a
+real `doctl` binary:
+
+```bash
+./validate.py              # whichever doctl is on PATH
+./validate.py /tmp/doctl   # or a specific build
+```
+
+```
+gate 1  commands written: 509   flag pairs: 260   problems: 0
+gate 2  leaf commands: 511   excluded: 6   undocumented: 0
+
+PASS
+```
+
+Gate 1 pulls every `doctl ...` invocation out of all fifteen skills, joins `\`
+continuations, and asserts the command path and each flag actually appear in that
+command's `--help`. It exists because a flag that doesn't exist reads exactly like a flag
+that does.
+
+Gate 2 walks the whole command tree and asserts every leaf is documented somewhere or
+sits in the `EXCLUDED` dict with a written reason. This is the one that matters when
+DigitalOcean ships a product: the gate fails, and nobody has to notice by hand.
+
+Run both before any commit that touches a command.
+
 ## Contributing
 
-Read `CLAUDE.md` first. The short version: verify every command against `doctl --help`
-before writing it, and run `./validate.py` before committing.
+Read `AGENTS.md` first. The short version: this is a live account so use `--help` only,
+verify every command against it before writing, and run `./validate.py` before committing.
