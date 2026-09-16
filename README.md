@@ -54,6 +54,20 @@ cp -r /tmp/do-skills/do-* .claude/skills/
 rm -rf /tmp/do-skills
 ```
 
+## Examples
+
+Starting prompts in `examples/`. They're short on purpose: each one names the target,
+the constraints, and which skills to lean on, and the skills supply the actual commands.
+
+| File | Does |
+|---|---|
+| `project-setup.md` | Run once per repo. Pick the account and project, write them to `.env`. |
+| `droplet-docker.md` | A $6/mo droplet running a Docker Compose stack. |
+| `app-platform.md` | Deploy a repo to App Platform from a validated spec. |
+| `static-site.md` | Static files to Spaces with the CDN in front. |
+
+Start with `project-setup.md`. The rest assume `DO_CONTEXT` and `DO_PROJECT` already exist.
+
 ## What it assumes
 
 `doctl` authenticated, which it does from its own config. Nothing here sets a doctl
