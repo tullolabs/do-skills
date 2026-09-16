@@ -34,10 +34,16 @@ reserved for values that genuinely live in the environment, and there are only s
 "this is already set" without guessing, and the validator does not check placeholders, so nothing but this
 rule is keeping them straight.
 
-Where a skill needs environment variables, read them from the environment and treat `~/.env` as the fallback,
+Two different files, and conflating them causes real damage. `~/.env` is machine-wide and holds secrets, the
+six `DO_SPACES_*` values. Read those from the environment first and treat the file as the fallback,
 `[ -n "$DO_SPACES_KEY" ] || source ~/.env`. A bare `source` overwrites what direnv, a secrets manager, or CI
-already exported. Only `/do-spaces` and the raw-curl block in `/do-ops` need any of this; `doctl` authenticates
-from its own config and ignores the environment entirely.
+already exported. `doctl` needs none of it; it authenticates from its own config and ignores the environment.
+
+The project's own `.env` holds per-project settings, all optional and none of them secret. `DO_CONTEXT` is the
+auth context the project deploys to, `DO_PROJECT` the project new resources get assigned to, `DO_APP_REPO` the
+`owner/repo` for App Platform. These cannot live in `~/.env`, because one machine works on many projects that
+belong to different accounts. When one is missing, ask the operator rather than inferring it from the directory
+name or the git remote, and never fall through to the starred context for a write.
 
 ## Accuracy rule
 

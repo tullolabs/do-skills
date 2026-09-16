@@ -68,6 +68,9 @@ doctl apps propose --spec app.yaml       # dry-run validate, no changes made
 doctl apps update <id> --spec app.yaml
 
 # Deploy from spec (⚠️ requires approval — only for new apps)
+# A new spec needs the source repo, which nothing on the account can tell you yet.
+# Read DO_APP_REPO from the project's .env, or ask the operator. Never guess it
+# from the directory name or the git remote.
 doctl apps create --spec app.yaml
 
 # Trigger re-deploy manually (⚠️ requires approval — rarely needed, prefer git push)

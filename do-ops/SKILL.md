@@ -48,6 +48,19 @@ Two separate auth systems. Don't mix them up:
 doctl account get
 doctl auth list          # the starred/current context is the one every command hits
 
+# Project-scoped settings, read from the project's own .env, never from ~/.env.
+# All three are optional and none are secrets. Ask the operator for any that are
+# missing before the first write, then offer to record them.
+#   DO_CONTEXT    auth context this project deploys to
+#   DO_PROJECT    project new resources should be assigned to
+#   DO_APP_REPO   owner/repo, App Platform projects only
+[ -f .env ] && . ./.env
+
+# Confirm the account before any write. An unset DO_CONTEXT is not an error, it is
+# silently whichever context happens to be starred, which may be another customer.
+: "${DO_CONTEXT:?unset — ask the operator which DO account this project deploys to}"
+doctl account get --context "$DO_CONTEXT" --format Email,Status
+
 # Switch teams before touching anything
 doctl auth switch --context <name>
 doctl compute droplet list --context <name>   # or override per-command
@@ -103,6 +116,8 @@ doctl 1-click list --type kubernetes # or droplet
 ## Gotchas
 
 **`--access-token` is silently ignored when a context is configured, and so is `DIGITALOCEAN_ACCESS_TOKEN`.** doctl inverts the precedence every other CLI uses. The stored config token wins over both the flag and the environment variable, with no warning. Verified on 1.168: `doctl account get --access-token bogus-not-real` returns the real account, and so does `DIGITALOCEAN_ACCESS_TOKEN=bogus doctl account get`, while the same variable against an empty `--config` correctly returns a 401. Only `--context` actually reroutes a command. The danger is believing a junk token has disarmed a call. An agent on this repo passed `--access-token fake-token-xxxx` to `monitoring uptime create` expecting a 401 it could document, and created a real billable uptime check on the live account. To scope a command to another account use `doctl auth switch --context <name>` or the `--context` flag. To test auth failure, point `--config` at an empty file.
+
+Two traps sit on `--context` itself. An empty value is not an error: `--context ""` falls through to the starred context and runs anyway, so `--context "$DO_CONTEXT"` with `DO_CONTEXT` unset silently targets whatever account was last switched to. Guard it with `: "${DO_CONTEXT:?}"` first. And context names can contain spaces, so always quote the expansion. Unquoted in bash, `--context $DO_CONTEXT` where the name is `tullo labs` splits into two arguments and fails with `access token is required`, an error that points at authentication when the real problem is quoting.
 
 
 These apply everywhere. Product-specific gotchas live in their own skill.

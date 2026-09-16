@@ -69,6 +69,8 @@ doctl compute tag delete web    # (⚠️ requires approval — also untags ever
 
 ## Gotchas
 
+**Nothing lands in the right project on its own.** `apps create`, `compute droplet create`, and `databases create` take no project flag at all, so every new resource goes to whichever project holds the default flag. Check with `doctl projects list --format Name,IsDefault`. Assignment is a second step, `doctl projects resources assign <project-id> --resource=<urn>`, and an agent that was never told the target project simply will not take it. Record the target as `DO_PROJECT` in the project's `.env`, or ask the operator before creating anything.
+
 **`--is_default` exists on `projects update` only, never on `projects create`.** Create the project first, then run `doctl projects update <project-id> --is_default` to move the flag onto it. `doctl projects list --format ID,Name,IsDefault` shows which project currently holds it, and `doctl projects get default` resolves to that one.
 
 **A project with anything assigned to it will not delete.** The delete help states the project must have no resources. Run `doctl projects resources list <project-id>` first and reassign everything it returns to another project with `doctl projects resources assign`, or the delete comes back rejected.

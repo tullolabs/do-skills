@@ -67,6 +67,12 @@ the environment is yours to pick. direnv, a secrets manager, and CI all already
 export them. Absent that, the skills fall back to `~/.env` with a guarded
 `[ -n "$DO_SPACES_KEY" ] || source ~/.env`, so an existing export always wins.
 
+Per-project settings are separate and optional, and live in the project's own `.env` rather than `~/.env`,
+since one machine works across accounts. `DO_CONTEXT` names the auth context to deploy to, `DO_PROJECT` the
+project new resources belong to, `DO_APP_REPO` the `owner/repo` for App Platform. When they are absent the
+skills tell the agent to ask rather than guess, because an unset context silently resolves to whichever
+account was last switched to.
+
 Spaces object operations need an S3 client, usually the `aws` CLI. That isn't a choice
 we made. DigitalOcean's v2 API has no object endpoints at all, so `doctl spaces` can
 only manage keys. Reading one public-read file is the exception, that's a plain `curl`.
