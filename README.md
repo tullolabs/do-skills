@@ -1,21 +1,52 @@
-# do-ops
+# do-skills
 
-A DigitalOcean operations cheatsheet skill for AI agents (OpenClaw-compatible).
+DigitalOcean operations skills for AI agents. Seven skills, one per product, so an
+agent working on app logs doesn't load 145 lines of Spaces file operations it will
+never read.
 
-Covers auth, Spaces file ops, Droplets, App Platform, Databases, DNS, and common gotchas that cause agents to hit debugging loops.
+Every command here was run against `doctl` 1.167 and checked against the DigitalOcean
+docs. Where the docs and the CLI disagree, the skill says which one to believe.
+
+## The skills
+
+| Skill | Covers |
+|---|---|
+| `/do-ops` | Start here. Auth, team contexts, direct API calls, and which skill to pick. |
+| `/do-spaces` | Buckets, file operations, CDN URLs and cache flush, access keys. |
+| `/do-apps` | App Platform. Logs, specs, deploys, static site hosting. |
+| `/do-dns` | Domains, records, nameserver delegation. |
+| `/do-databases` | Clusters, connection pools, trusted sources. |
+| `/do-droplets` | Compute and SSH. |
+| `/do-registry` | Container registry and garbage collection. |
 
 ## Install
 
+All seven, for every project on the machine:
+
 ```bash
-cp -r . ~/.agents/skills/do-ops/
+curl -fsSL https://raw.githubusercontent.com/tullolabs/do-skills/main/install.sh | bash
 ```
 
-## What's inside
+Or one project only:
 
-- `doctl` + AWS CLI auth setup
-- Spaces file operations with exact inline commands
-- Bucket structure conventions
-- Droplets, App Platform, Databases, DNS — practical commands
-- Common gotchas (wrong region, separate auth systems, CDN vs raw URLs, wrong `doctl` auth context, etc.)
+```bash
+git clone --depth 1 https://github.com/tullolabs/do-skills /tmp/do-skills
+cp -r /tmp/do-skills/do-* .claude/skills/
+rm -rf /tmp/do-skills
+```
 
-Verified against `doctl` 1.167 and the DigitalOcean docs as of September 2026.
+## What it assumes
+
+`doctl` authenticated, and a `~/.env` holding `DO_TOKEN`, `DO_SPACES_KEY`,
+`DO_SPACES_SECRET`, `DO_SPACES_ENDPOINT`, `DO_SPACES_BUCKET`, `DO_SPACES_CDN`,
+`DO_SPACES_CDN_ID`.
+
+Spaces object operations need an S3 client, usually `aws`. That isn't a choice we
+made. DigitalOcean's v2 API has no object endpoints at all, so `doctl spaces` can
+only manage keys. Reading one public-read file is the exception, that's a plain `curl`.
+
+## The rule that matters
+
+Destructive actions (delete, destroy, reset, create) need operator approval. Reads
+are always safe. Every skill repeats this at the top, because an agent that loads
+only `/do-droplets` still needs to know it.
