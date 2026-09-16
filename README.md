@@ -66,6 +66,7 @@ the constraints, and which skills to lean on, and the skills supply the actual c
 | `droplet-docker.md` | A $6/mo droplet running a Docker Compose stack. |
 | `app-platform.md` | Deploy a repo to App Platform from a validated spec. |
 | `static-site.md` | Static files to Spaces with the CDN in front. |
+| `deployment-check.md` | Read-only health check of an existing deployment. One line when clean. |
 
 Start with `project-setup.md`. The rest assume `DO_CONTEXT` and `DO_PROJECT` already exist.
 
