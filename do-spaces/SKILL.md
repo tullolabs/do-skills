@@ -8,9 +8,12 @@ argument-hint: "[upload|list|delete|flush] [path]"
 # Spaces
 
 > Destructive ops (delete, overwrite) need operator approval. Reads are always safe.
-> Auth: `source ~/.env` for Spaces keys. See `/do-ops` for doctl contexts.
+> Auth: the six `DO_SPACES_*` vars must be in the environment. See `/do-ops` for doctl contexts.
 
-All Spaces config comes from `.env`. Bucket name, endpoint, and CDN URL are environment-specific.
+The six `DO_SPACES_*` environment variables are the interface. Bucket name, endpoint, and CDN URL are
+environment-specific, so nothing is hardcoded here. How they get set is your business: direnv, a secrets
+manager, and CI all export them already. This repo assumes `~/.env` when they are not set yet, which is why
+every block below starts with the same guarded line rather than a bare `source`.
 
 `doctl` cannot read or write Spaces objects. It only manages access keys (`doctl spaces keys`) and the CDN.
 Writes, listings, and deletes need a separate S3 client. Check one is present before you promise an upload:
@@ -48,10 +51,10 @@ Rules:
 
 ### File Operations
 
-Always `source ~/.env` first. Pass credentials inline — do not configure `~/.aws/credentials`.
+Load credentials first. Pass them inline — do not configure `~/.aws/credentials`.
 
 ```bash
-source ~/.env
+[ -n "$DO_SPACES_KEY" ] || source ~/.env
 
 # Upload (public)
 AWS_ACCESS_KEY_ID=$DO_SPACES_KEY \
@@ -111,7 +114,7 @@ never the bare bucket name — and returns the generated endpoint plus the CDN I
 A custom subdomain needs a DigitalOcean-managed certificate; see `/do-network` for issuing one.
 
 ```bash
-source ~/.env
+[ -n "$DO_SPACES_KEY" ] || source ~/.env
 
 # List endpoints with their IDs, origins, and TTLs
 doctl compute cdn list --format ID,Origin,Endpoint,TTL,CustomDomain,CertificateID
@@ -146,7 +149,7 @@ at all it stops at `Nothing to update.`. Get the certificate ID from `doctl comp
 Edge cache TTL defaults to one hour, so an updated file does refresh on its own. Flush when you need it now:
 
 ```bash
-source ~/.env
+[ -n "$DO_SPACES_KEY" ] || source ~/.env
 
 # Flush entire CDN cache
 doctl compute cdn flush $DO_SPACES_CDN_ID --files "*"   # (⚠️ requires approval)
@@ -190,7 +193,7 @@ cannot call `PutBucketPolicy`. Use a full-access key for policy changes.
 
 **Never configure `~/.aws/credentials`** — pass credentials inline. Multiple agents share this machine.
 
-**Always source `.env` before Spaces commands.** `$DO_SPACES_BUCKET`, `$DO_SPACES_ENDPOINT`, and `$DO_SPACES_CDN` won't exist otherwise — commands will silently fail or write to wrong paths.
+**Check the `DO_SPACES_*` vars are set before any Spaces command.** Unset, `$DO_SPACES_BUCKET` and `$DO_SPACES_ENDPOINT` expand to empty strings rather than erroring, so `aws s3 cp ./file.jpg s3://$DO_SPACES_BUCKET/images/file.jpg` becomes a write to `s3:///images/file.jpg` and either fails confusingly or lands somewhere you did not mean. Use `[ -n "$DO_SPACES_KEY" ] || source ~/.env` rather than a bare `source`: an unconditional source overwrites values that direnv, a secrets manager, or CI already put in the environment, so a deliberate override silently loses to the file.
 
 **CDN URLs, not raw Spaces URLs.** The raw endpoint bypasses CDN. Always construct URLs from `$DO_SPACES_CDN`.
 

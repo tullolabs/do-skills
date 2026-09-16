@@ -26,6 +26,19 @@ override and created a real, billable uptime check on the account. It was delete
 the minute, but the lesson is that a bogus credential is not a dry run. `--help` is the
 only safe way to learn what a command does.
 
+## Placeholders and environment variables
+
+`<angle-brackets>` mean look this up at runtime: `<droplet-id>`, `<vpc-id>`, `<cluster-id>`. `$VARS` are
+reserved for values that genuinely live in the environment, and there are only seven, `DO_TOKEN` plus the six
+`DO_SPACES_*`. Never invent a new one. A reader has to be able to tell "run a list command to find this" from
+"this is already set" without guessing, and the validator does not check placeholders, so nothing but this
+rule is keeping them straight.
+
+Where a skill needs environment variables, read them from the environment and treat `~/.env` as the fallback,
+`[ -n "$DO_SPACES_KEY" ] || source ~/.env`. A bare `source` overwrites what direnv, a secrets manager, or CI
+already exported. Only `/do-spaces` and the raw-curl block in `/do-ops` need any of this; `doctl` authenticates
+from its own config and ignores the environment entirely.
+
 ## Accuracy rule
 
 Every command in this repo must be verified against `doctl --help` before it is written

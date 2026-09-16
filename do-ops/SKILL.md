@@ -60,15 +60,17 @@ doctl auth remove --context <name>   # (⚠️ requires approval)
 # Are we being rate limited
 doctl account ratelimit
 
-# Load Spaces credentials before any aws s3 command
-source ~/.env
+# Load Spaces credentials before any aws s3 command, without clobbering an existing export
+[ -n "$DO_SPACES_KEY" ] || source ~/.env
 # Provides: DO_TOKEN, DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT,
 #           DO_SPACES_BUCKET, DO_SPACES_CDN (hostname), DO_SPACES_CDN_ID (uuid)
+# DO_TOKEN is this repo's name for the curl block below. doctl does not read it.
 ```
 
-Direct API calls when `doctl` doesn't cover something:
+Direct API calls when `doctl` doesn't cover something. `DO_TOKEN` is only for this; `doctl` gets its
+token from its own config, not from the environment:
 ```bash
-source ~/.env
+[ -n "$DO_TOKEN" ] || source ~/.env
 curl -X GET "https://api.digitalocean.com/v2/<resource>" \
   -H "Authorization: Bearer $DO_TOKEN" \
   -H "Content-Type: application/json"
@@ -99,6 +101,9 @@ doctl 1-click list --type kubernetes # or droplet
 ---
 
 ## Gotchas
+
+**`--access-token` is silently ignored when a context is configured, and so is `DIGITALOCEAN_ACCESS_TOKEN`.** doctl inverts the precedence every other CLI uses. The stored config token wins over both the flag and the environment variable, with no warning. Verified on 1.168: `doctl account get --access-token bogus-not-real` returns the real account, and so does `DIGITALOCEAN_ACCESS_TOKEN=bogus doctl account get`, while the same variable against an empty `--config` correctly returns a 401. Only `--context` actually reroutes a command. The danger is believing a junk token has disarmed a call. An agent on this repo passed `--access-token fake-token-xxxx` to `monitoring uptime create` expecting a 401 it could document, and created a real billable uptime check on the live account. To scope a command to another account use `doctl auth switch --context <name>` or the `--context` flag. To test auth failure, point `--config` at an empty file.
+
 
 These apply everywhere. Product-specific gotchas live in their own skill.
 

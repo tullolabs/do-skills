@@ -56,13 +56,22 @@ rm -rf /tmp/do-skills
 
 ## What it assumes
 
-`doctl` authenticated, and a `~/.env` holding `DO_TOKEN`, `DO_SPACES_KEY`,
-`DO_SPACES_SECRET`, `DO_SPACES_ENDPOINT`, `DO_SPACES_BUCKET`, `DO_SPACES_CDN`,
-`DO_SPACES_CDN_ID`.
+`doctl` authenticated, which it does from its own config. Nothing here sets a doctl
+token, and it would be ignored if it tried; see the auth gotcha in `/do-ops`.
 
-Spaces object operations need an S3 client, usually `aws`. That isn't a choice we
-made. DigitalOcean's v2 API has no object endpoints at all, so `doctl spaces` can
+Spaces is the only part that needs environment variables, because it does not go
+through `doctl` at all. Seven names, `DO_TOKEN` for raw v2 API calls plus
+`DO_SPACES_KEY`, `DO_SPACES_SECRET`, `DO_SPACES_ENDPOINT`, `DO_SPACES_BUCKET`,
+`DO_SPACES_CDN`, and `DO_SPACES_CDN_ID`. The names are the contract; how they reach
+the environment is yours to pick. direnv, a secrets manager, and CI all already
+export them. Absent that, the skills fall back to `~/.env` with a guarded
+`[ -n "$DO_SPACES_KEY" ] || source ~/.env`, so an existing export always wins.
+
+Spaces object operations need an S3 client, usually the `aws` CLI. That isn't a choice
+we made. DigitalOcean's v2 API has no object endpoints at all, so `doctl spaces` can
 only manage keys. Reading one public-read file is the exception, that's a plain `curl`.
+An application talking to Spaces would use an S3 SDK rather than the CLI, and wiring
+that up is out of scope here.
 
 ## The rule that matters
 
