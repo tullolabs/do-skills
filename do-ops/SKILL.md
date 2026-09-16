@@ -1,8 +1,8 @@
 ---
 name: do-ops
-description: Index and auth for DigitalOcean work. Start here to pick the right DO skill, verify which team doctl is pointed at, and call the v2 API directly. Routes to do-spaces, do-apps, do-dns, do-databases, do-droplets, do-registry. Use for any DigitalOcean task, or when unsure which one applies.
+description: Index, auth, and billing for DigitalOcean work. Start here to pick the right DO skill, verify which team doctl is pointed at, check the account balance and invoices, and call the v2 API directly. Routes to the fourteen other do skills. Use for any DigitalOcean task, or when unsure which one applies.
 user-invocable: true
-argument-hint: "[auth|context|api]"
+argument-hint: "[auth|context|billing|api]"
 ---
 
 # DigitalOcean Ops
@@ -18,11 +18,19 @@ Quick reference for agents working with DigitalOcean infrastructure. `doctl` is 
 | Files, buckets, uploads, CDN | `/do-spaces` |
 | App Platform deploys, logs, specs, static sites | `/do-apps` |
 | Domains, DNS records, nameservers | `/do-dns` |
-| Managed Postgres, MySQL, Valkey, pools | `/do-databases` |
-| VMs, SSH, images, sizes | `/do-droplets` |
+| Managed Postgres, MySQL, Valkey, Kafka, OpenSearch, pools | `/do-databases` |
+| VMs, SSH, power, resize, snapshots, autoscale | `/do-droplets` |
 | Container images, tags, garbage collection | `/do-registry` |
+| Kubernetes clusters, node pools, kubeconfig | `/do-k8s` |
+| VPCs, firewalls, load balancers, certs, reserved IPs | `/do-network` |
+| Block storage volumes, snapshots, images, NFS | `/do-storage` |
+| Serverless functions, namespaces, activations | `/do-functions` |
+| Metric alerts and uptime checks | `/do-monitoring` |
+| Projects, resource assignment, tags | `/do-projects` |
+| Gradient agents, knowledge bases, vector DBs, inference | `/do-ai` |
+| Secrets Manager and CSPM security scans | `/do-secrets` |
 
-Each one is standalone. Read this skill first only when you need auth, contexts, or the raw API.
+Each one is standalone. Read this skill first only when you need auth, contexts, billing, or the raw API.
 
 ---
 
@@ -44,6 +52,14 @@ doctl auth list          # the starred/current context is the one every command 
 doctl auth switch --context <name>
 doctl compute droplet list --context <name>   # or override per-command
 
+# Manage contexts
+doctl auth init --context <name>     # add an account, prompts for a token
+doctl auth token                     # print the current context's token
+doctl auth remove --context <name>   # (⚠️ requires approval)
+
+# Are we being rate limited
+doctl account ratelimit
+
 # Load Spaces credentials before any aws s3 command
 source ~/.env
 # Provides: DO_TOKEN, DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT,
@@ -60,6 +76,28 @@ curl -X GET "https://api.digitalocean.com/v2/<resource>" \
 
 ---
 
+## Billing
+
+```bash
+doctl balance get                    # current account balance
+doctl billing-history list           # charges, payments, refunds
+doctl invoice list                   # every invoice UUID
+doctl invoice summary <invoice-uuid> # totals for one invoice
+doctl invoice get <invoice-uuid>     # line items
+doctl invoice pdf <invoice-uuid> invoice.pdf
+doctl invoice csv <invoice-uuid> invoice.csv
+```
+
+`invoice pdf` and `invoice csv` take the output filename as a second positional, not a flag.
+They write the file rather than printing to stdout.
+
+```bash
+doctl 1-click list                   # Marketplace one-click apps, all types
+doctl 1-click list --type kubernetes # or droplet
+```
+
+---
+
 ## Gotchas
 
 These apply everywhere. Product-specific gotchas live in their own skill.
@@ -70,7 +108,9 @@ These apply everywhere. Product-specific gotchas live in their own skill.
 
 **Tag resources with project name** for cost tracking:
 ```bash
-doctl compute droplet create <name> --tag-names my-project
+doctl compute droplet create <name> --tag-names my-project   # (⚠️ requires approval)
 ```
 
 **`doctl` self-reports when it is stale.** If a documented flag is missing, check `doctl version` against the release it prints and run `brew upgrade doctl`.
+
+**Cost lives on the team, not the project.** `doctl balance get` and `doctl invoice` report only the team the current context points at, and each team bills separately unless it belongs to an organization. Run them once per context for the full picture. To attribute spend, tag resources and use projects. See `/do-projects`.

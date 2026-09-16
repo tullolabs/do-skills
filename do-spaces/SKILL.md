@@ -1,6 +1,6 @@
 ---
 name: do-spaces
-description: Use for any DigitalOcean Spaces, bucket, S3, or CDN task. Upload, list, sync, and delete objects with the AWS CLI, build CDN URLs, flush the CDN cache, and manage Spaces access keys with doctl.
+description: Use for any DigitalOcean Spaces, bucket, S3, or CDN task. Upload, list, sync, and delete objects with the AWS CLI, create and update CDN endpoints, flush the CDN cache, and manage Spaces access keys and grants with doctl.
 user-invocable: true
 argument-hint: "[upload|list|delete|flush] [path]"
 ---
@@ -103,6 +103,44 @@ Spaces supports exactly two canned ACLs: `private` and `public-read`. Don't coun
 `bucket-owner-full-control` doing anything useful. For rules finer than that, use a bucket policy via
 `aws s3api put-bucket-policy`, which the control panel cannot show or edit.
 
+### CDN endpoints
+
+A CDN endpoint is its own resource, created over a bucket rather than part of it. `doctl compute cdn create`
+takes the bucket's full Spaces hostname as its positional origin — `<bucket>.<region>.digitaloceanspaces.com`,
+never the bare bucket name — and returns the generated endpoint plus the CDN ID that `$DO_SPACES_CDN_ID` holds.
+A custom subdomain needs a DigitalOcean-managed certificate; see `/do-network` for issuing one.
+
+```bash
+source ~/.env
+
+# List endpoints with their IDs, origins, and TTLs
+doctl compute cdn list --format ID,Origin,Endpoint,TTL,CustomDomain,CertificateID
+
+# Create an endpoint over a bucket (TTL defaults to 3600 seconds)
+doctl compute cdn create $DO_SPACES_BUCKET.<region>.digitaloceanspaces.com   # (⚠️ requires approval)
+
+# Create with a custom subdomain (`--certificate-id` is mandatory whenever `--domain` is set)
+# (⚠️ requires approval)
+doctl compute cdn create $DO_SPACES_BUCKET.<region>.digitaloceanspaces.com \
+  --domain cdn.example.com \
+  --certificate-id <certificate-id>
+
+# Inspect one endpoint
+doctl compute cdn get <cdn-id> --format ID,Origin,Endpoint,TTL,CustomDomain,CertificateID
+
+# Shorten the cache lifetime to 10 minutes
+doctl compute cdn update <cdn-id> --ttl 600   # (⚠️ requires approval)
+
+# Attach or move a custom subdomain (the certificate must already cover that FQDN)
+doctl compute cdn update <cdn-id> --domain cdn.example.com --certificate-id <certificate-id>   # (⚠️ requires approval)
+
+# Delete the endpoint (⚠️ requires approval — CDN URLs stop resolving, bucket objects are untouched)
+doctl compute cdn delete <cdn-id>
+```
+
+`update` sends only the flags you pass, so `--ttl 600` leaves an existing custom domain alone; with no flags
+at all it stops at `Nothing to update.`. Get the certificate ID from `doctl compute certificate list`.
+
 ### CDN Cache Flush
 
 Edge cache TTL defaults to one hour, so an updated file does refresh on its own. Flush when you need it now:
@@ -111,11 +149,11 @@ Edge cache TTL defaults to one hour, so an updated file does refresh on its own.
 source ~/.env
 
 # Flush entire CDN cache
-doctl compute cdn flush $DO_SPACES_CDN_ID --files "*"
+doctl compute cdn flush $DO_SPACES_CDN_ID --files "*"   # (⚠️ requires approval)
 
 # Flush specific path (leading slash, wildcard for a whole directory)
-doctl compute cdn flush $DO_SPACES_CDN_ID --files /project-name/images/file.jpg
-doctl compute cdn flush $DO_SPACES_CDN_ID --files "/project-name/images/*"
+doctl compute cdn flush $DO_SPACES_CDN_ID --files /project-name/images/file.jpg   # (⚠️ requires approval)
+doctl compute cdn flush $DO_SPACES_CDN_ID --files "/project-name/images/*"   # (⚠️ requires approval)
 
 # Get CDN ID if you don't have it
 doctl compute cdn list
@@ -129,7 +167,13 @@ doctl compute cdn list
 
 ```bash
 doctl spaces keys list
-doctl spaces keys create <name> --grants "bucket=my-bucket;permission=readwrite"
+doctl spaces keys get <access-key-id> --format Name,Grants
+doctl spaces keys create <name> --grants "bucket=my-bucket;permission=readwrite"   # (⚠️ requires approval)
+
+# Rename and re-grant (⚠️ requires approval — replaces the whole grant list, both flags required)
+doctl spaces keys update <access-key-id> --name new-key \
+  --grants "bucket=my-bucket;permission=readwrite,bucket=my-other-bucket;permission=read"
+
 doctl spaces keys delete <key-id>          # (⚠️ requires approval)
 ```
 
@@ -141,6 +185,8 @@ cannot call `PutBucketPolicy`. Use a full-access key for policy changes.
 **The endpoint URL picks the datacenter, not the region flag.** `--endpoint-url` is what routes the request. `us-east-1` is the safe placeholder every DO example uses, and non-Python SDKs actually require it for bucket creation. Setting it while the bucket lives in SGP1 costs nothing.
 
 **`doctl spaces` does not list buckets.** It only manages access keys. Bucket and object listing goes through an S3 client or the API.
+
+**`doctl spaces keys update` replaces the entire grant list.** It PUTs exactly what `--grants` contains, so any bucket you leave off the line loses access the moment the command returns, with no warning and no diff in the output. Run `doctl spaces keys get <access-key-id> --format Grants` first and re-send every grant you intend to keep. `--name` is required too, so there is no way to change grants without also restating the name.
 
 **Never configure `~/.aws/credentials`** — pass credentials inline. Multiple agents share this machine.
 

@@ -24,7 +24,7 @@ doctl compute domain get example.com
 # Add a domain you already own to DO (⚠️ requires approval)
 doctl compute domain create example.com
 # ...optionally seed an A record for @ at the same time:
-doctl compute domain create example.com --ip-address <ip>
+doctl compute domain create example.com --ip-address <ip>   # (⚠️ requires approval)
 
 # Remove a domain AND all its records (⚠️ requires approval — destructive)
 doctl compute domain delete example.com
@@ -68,4 +68,8 @@ doctl compute domain records update example.com \
 doctl compute domain records delete example.com <record-id>
 ```
 
-> **DO only serves DNS once nameservers are delegated.** Adding a domain in DO does nothing until the registrar's nameservers point to `ns1.digitalocean.com`, `ns2.digitalocean.com`, `ns3.digitalocean.com`. DO is not a registrar — domains are bought elsewhere, then delegated here.
+## Gotchas
+
+**DigitalOcean only serves DNS once nameservers are delegated.** Adding a domain in DO does nothing until the registrar's nameservers point to `ns1.digitalocean.com`, `ns2.digitalocean.com`, `ns3.digitalocean.com`. DO is not a registrar — domains are bought elsewhere, then delegated here.
+
+**`records update` needs `--record-id` as a flag, while `records delete` takes the ID as a positional.** The two commands disagree on shape for the same value, so copying one into the other fails. `delete` is also variadic (`<domain> <record-id>...`), so a stray ID on the line removes a second record.
